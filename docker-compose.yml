@@ -1,6 +1,4 @@
-# docker-compose.yml
-version: "3.9"
-
+name: TTCS
 services:
   api:
     build: .
@@ -9,4 +7,9 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    volumes:
+      - .:/app
+    environment:
+      - WATCHFILES_FORCE_POLLING=true
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
     restart: unless-stopped
