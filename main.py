@@ -7,6 +7,9 @@ from routers.auth import router as auth_router
 from routers.rbac import router as rbac_router
 from routers.users import router as users_router
 from routers.don_vi import router as donvi_router
+from routers.public_event import router as public_event_router
+from routers.report import router as report_router
+from routers.event_registration import router as event_registration_router
 
 app = FastAPI()
 
@@ -22,6 +25,9 @@ app.include_router(auth_router)
 app.include_router(rbac_router)
 app.include_router(users_router)
 app.include_router(donvi_router)
+app.include_router(public_event_router)
+app.include_router(report_router)
+app.include_router(event_registration_router)
 
 
 @app.get("/")  # 127.0.0.1:8000/

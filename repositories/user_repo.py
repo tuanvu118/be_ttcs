@@ -12,7 +12,7 @@ class UserRepo:
 
     async def get_by_ma_sv(self,ma_sv: str) -> Optional[User]:
         return await User.find_one(User.ma_sv == ma_sv)
-    
+
     async def get_list(self, skip: int = 0, limit: int = 20) -> Tuple[List[User], int]:
         total = await User.find().count()
         items = await (
@@ -29,6 +29,17 @@ class UserRepo:
     
     async def save(self, user: User) -> User:
         return await user.save()
+
+    @staticmethod
+    async def get_by_ids(
+            ids: List[PydanticObjectId]
+    ) -> List[User]:
+        if not ids:
+            return []
+
+        return await User.find(
+            {"_id": {"$in": ids}}
+        ).to_list()
     
     
 

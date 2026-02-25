@@ -5,13 +5,31 @@ from fastapi import HTTPException, status
 
 
 class ErrorCode(int, Enum):
+
+
+
+
+
     USER_NOT_FOUND = 10
     DONVI_NOT_FOUND = 20
     INVALID_IMAGE_TYPE = 30
+
     INVALID_CREDENTIALS = 40
     INVALID_TOKEN = 41
+
     INSUFFICIENT_PERMISSION = 50
     HEADER_DONVI_REQUIRED = 60
+
+    EVENT_NOT_FOUND = 70
+    INVALID_REGISTRATION_TIME = 71
+    INVALID_EVENT_TIME = 72
+    EVENT_MUST_START_AFTER_REGISTRATION = 73
+
+    REPORT_NOT_FOUND = 80
+    REPORT_ALREADY_EXISTS = 81
+
+    REGISTRATION_NOT_FOUND = 90
+    ALREADY_REGISTERED = 91
 
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
@@ -42,6 +60,40 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.HEADER_DONVI_REQUIRED: {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Thiếu header X-DonVi-Id",
+    },
+    ErrorCode.EVENT_NOT_FOUND: {
+        "status": status.HTTP_404_NOT_FOUND,
+        "message": "Sự kiện không tồn tại",
+    },
+    ErrorCode.REPORT_NOT_FOUND: {
+        "status": status.HTTP_404_NOT_FOUND,
+        "message": "Báo cáo không tồn tại",
+    },
+    ErrorCode.REPORT_ALREADY_EXISTS: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Đã có báo cáo như vậy rồi",
+    },
+    ErrorCode.REGISTRATION_NOT_FOUND: {
+        "status": status.HTTP_404_NOT_FOUND,
+        "message": "Chưa đăng ký sự tham gia sự kiện",
+    },
+
+    ErrorCode.ALREADY_REGISTERED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Đã đăng ký sự tham gia sự kiện rồi",
+    },
+
+    ErrorCode.INVALID_REGISTRATION_TIME: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Thoi gian dang ky khong hop le",
+    },
+    ErrorCode.INVALID_EVENT_TIME: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Thoi gian su kien khong hop le",
+    },
+    ErrorCode.EVENT_MUST_START_AFTER_REGISTRATION: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Thoi gian su kien phai sau thoi gian dang ky",
     },
 }
 
