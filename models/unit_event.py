@@ -1,18 +1,25 @@
-from beanie import Document, PydanticObjectId
+from beanie import Document, PydanticObjectId, DecimalAnnotation
 from pydantic import Field
-import decimal
+from decimal import Decimal
+
 from datetime import datetime
 from typing import Optional
 from enum import Enum
+
 
 class UnitEventEnum(str, Enum):
     HTTT = "HTTT"
     HTSK = "HTSK"
 
+
 class UnitEvent(Document):
     title: str
     description: Optional[str] = None
-    point: decimal.Decimal = Field(default=0, ge=0, le=100)
+    point: DecimalAnnotation = Field(
+        default=Decimal("0"),
+        ge=Decimal("0"),
+        le=Decimal("10"),
+    )
     type: UnitEventEnum
     created_at: datetime = Field(default_factory=datetime.now)
     created_by: PydanticObjectId

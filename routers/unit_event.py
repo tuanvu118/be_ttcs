@@ -5,6 +5,7 @@ from security import require_manager
 from services.unit_event_service import UnitEventService
 from repositories.unit_event_repo import UnitEventRepo
 from schemas.auth import TokenData
+from typing import List
 
 router = APIRouter(prefix="/unit-events", tags=["Unit Events"])
 
@@ -23,6 +24,24 @@ async def tạo_sự_kiện_đẩy_xuống_đơn_vị(
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> UnitEventResponse:
     """
-    Create a new unit event
+    Tạo sự kiện đẩy xuống đơn vị (HTTT hoặc HTSK)
+
+    Điểm số từ 0.00 đến 10.00
+
+    Loại sự kiện: HTTT hoặc HTSK
+
+    Quyền tạo: VPĐ hoặc ADMIN
     """
     return await service.create_unit_event(data, current_user.sub)
+
+@router.get("/", response_model=List[UnitEventResponse], dependencies=[Depends(require_manager)])
+async def Lấy_danh_sách_tất_cả_sự_kiện_đẩy_xuống_đơn_vị(
+    _ = Depends(require_manager),
+    service: UnitEventService = Depends(get_unit_event_service),
+) -> List[UnitEventResponse]:
+    """
+    Lấy danh sách tất cả sự kiện đẩy xuống đơn vị (bao gồm cả HTTT và HTSK)
+    
+    Quyền xem: VPĐ hoặc ADMIN
+    """
+    return await service.get_all_unit_events()
