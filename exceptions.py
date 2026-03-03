@@ -31,6 +31,10 @@ class ErrorCode(int, Enum):
     REGISTRATION_NOT_FOUND = 90
     ALREADY_REGISTERED = 91
 
+    INVALID_POINT_VALUE = 100
+    INVALID_UNIT_EVENT_TYPE_VALUE = 101
+
+
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
@@ -94,6 +98,15 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.EVENT_MUST_START_AFTER_REGISTRATION: {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Thoi gian su kien phai sau thoi gian dang ky",
+    },
+
+    ErrorCode.INVALID_POINT_VALUE: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Giá trị điểm không hợp lệ",
+    },
+    ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Loại sự kiện không hợp lệ",
     },
 }
 

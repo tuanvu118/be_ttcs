@@ -10,7 +10,7 @@ from models.don_vi import DonVi
 from models.public_event import PublicEvent
 from models.report import Report
 from models.event_registration import EventRegistration
-
+from models.unit_event import UnitEvent
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI")
@@ -21,7 +21,7 @@ client = AsyncIOMotorClient(MONGO_URI)
 async def init_db():
     await init_beanie(
         database=client[DB_NAME],
-        document_models=[User, Role, UserRole, DonVi, PublicEvent,Report,EventRegistration],
+        document_models=[User, Role, UserRole, DonVi, PublicEvent, Report, EventRegistration, UnitEvent],
     )
 
 def get_db():
