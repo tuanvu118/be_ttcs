@@ -34,6 +34,8 @@ class ErrorCode(int, Enum):
     INVALID_POINT_VALUE = 100
     INVALID_UNIT_EVENT_TYPE_VALUE = 101
 
+    UNIT_EVENT_NOT_FOUND = 110
+
 
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
@@ -107,6 +109,11 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE: {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Loại sự kiện không hợp lệ",
+    },
+
+    ErrorCode.UNIT_EVENT_NOT_FOUND: {
+        "status": status.HTTP_404_NOT_FOUND,
+        "message": "Sự kiện đẩy xuống đơn vị không tồn tại",
     },
 }
 

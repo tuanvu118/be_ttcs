@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi import status
-from schemas.unit_event import UnitEventCreate, UnitEventResponse
+from schemas.unit_event import UnitEventCreate, UnitEventResponse, UnitEventUpdate
+from schemas.response import BaseResponse
 from security import require_manager
 from services.unit_event_service import UnitEventService
 from repositories.unit_event_repo import UnitEventRepo
@@ -58,3 +59,32 @@ async def Lấy_một_sự_kiện_đẩy_xuống_đơn_vị_theo_id(
     Quyền xem: VPĐ hoặc ADMIN
     """
     return await service.get_unit_event_by_id(event_id)
+
+@router.put("/{event_id}", response_model=BaseResponse, dependencies=[Depends(require_manager)])
+async def Cập_nhat_sự_kiện_đẩy_xuống_đơn_vị(
+    event_id: str,
+    data: UnitEventUpdate,
+    _ = Depends(require_manager),
+    service: UnitEventService = Depends(get_unit_event_service),
+) -> BaseResponse:
+    """
+    Cập nhật sự kiện đẩy xuống đơn vị theo id
+    
+    Quyền cập nhật: VPĐ hoặc ADMIN
+    
+    Không được sửa Type
+    """
+    return await service.update_unit_event(event_id, data)
+
+@router.delete("/{event_id}", response_model=BaseResponse, dependencies=[Depends(require_manager)])
+async def Xóa_sự_kiện_đẩy_xuống_đơn_vị(
+    event_id: str,
+    _ = Depends(require_manager),
+    service: UnitEventService = Depends(get_unit_event_service),
+) -> BaseResponse:
+    """
+    Xóa sự kiện đẩy xuống đơn vị theo id
+    
+    Quyền xóa: VPĐ hoặc ADMIN
+    """
+    return await service.delete_unit_event(event_id)
