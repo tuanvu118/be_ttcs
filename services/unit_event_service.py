@@ -37,3 +37,9 @@ class UnitEventService:
     async def get_all_unit_events(self) -> List[UnitEventResponse]:
         events = await self.repo.get_all()
         return [UnitEventResponse.model_validate(event) for event in events]
+
+    async def get_unit_event_by_id(self, event_id: PydanticObjectId) -> UnitEventResponse:
+        event = await self.repo.get_by_id(event_id)
+        if not event:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        return UnitEventResponse.model_validate(event)

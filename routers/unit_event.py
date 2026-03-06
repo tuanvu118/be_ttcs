@@ -45,3 +45,16 @@ async def Lấy_danh_sách_tất_cả_sự_kiện_đẩy_xuống_đơn_vị(
     Quyền xem: VPĐ hoặc ADMIN
     """
     return await service.get_all_unit_events()
+
+@router.get("/{event_id}", response_model=UnitEventResponse, dependencies=[Depends(require_manager)])
+async def Lấy_một_sự_kiện_đẩy_xuống_đơn_vị_theo_id(
+    event_id: str,
+    _ = Depends(require_manager),
+    service: UnitEventService = Depends(get_unit_event_service),
+) -> UnitEventResponse:
+    """
+    Lấy sự kiện đẩy xuống đơn vị theo id
+    
+    Quyền xem: VPĐ hoặc ADMIN
+    """
+    return await service.get_unit_event_by_id(event_id)
