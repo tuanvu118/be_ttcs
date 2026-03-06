@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi import status
 from schemas.unit_event import UnitEventCreate, UnitEventResponse, UnitEventUpdate
 from schemas.response import BaseResponse
-from security import require_manager
+from security import require_manager, require_staff
 from services.unit_event_service import UnitEventService
 from repositories.unit_event_repo import UnitEventRepo
 from schemas.auth import TokenData
@@ -50,13 +50,13 @@ async def Lấy_danh_sách_tất_cả_sự_kiện_đẩy_xuống_đơn_vị(
 @router.get("/{event_id}", response_model=UnitEventResponse, dependencies=[Depends(require_manager)])
 async def Lấy_một_sự_kiện_đẩy_xuống_đơn_vị_theo_id(
     event_id: str,
-    _ = Depends(require_manager),
+    _ = Depends(require_staff),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> UnitEventResponse:
     """
     Lấy sự kiện đẩy xuống đơn vị theo id
     
-    Quyền xem: VPĐ hoặc ADMIN
+    Quyền xem: VPĐ hoặc ADMIN hoặc STAFF
     """
     return await service.get_unit_event_by_id(event_id)
 
