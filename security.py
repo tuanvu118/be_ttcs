@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
 from exceptions import ErrorCode, app_exception
-from schemas.auth import DonViRole, TokenData
+from schemas.auth import TokenData, UnitRole
 
 
 SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_ME_SECRET_KEY")
@@ -40,7 +40,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:
         if payload.get("type") != "access":
             app_exception(ErrorCode.INVALID_TOKEN)
         roles_payload = payload.get("roles", [])
-        roles: List[DonViRole] = [DonViRole(**item) for item in roles_payload]
+        roles: List[UnitRole] = [UnitRole(**item) for item in roles_payload]
         token_data = TokenData(
             sub=str(payload.get("sub")),
             email=payload.get("email"),
@@ -52,35 +52,40 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:
     return token_data
 
 
-def _has_role_in_donvi(
+def _has_role_in_unit(
     current_user: TokenData,
     required_roles: List[str],
-    don_vi_id: str,
+    unit_id: str,
 ) -> bool:
-    for dv in current_user.roles:
-        if dv.don_vi_id == don_vi_id and any(r in dv.roles for r in required_roles):
+    for unit_role in current_user.roles:
+        if unit_role.unit_id == unit_id and any(
+            role in unit_role.roles for role in required_roles
+        ):
             return True
     return False
 
 
 def require_admin(
     current_user: TokenData = Depends(get_current_user),
-    x_don_vi_id: str | None = Header(default=None, alias="X-DonVi-Id"),
+    x_unit_id: str | None = Header(default=None, alias="X-Unit-Id"),
 ) -> TokenData:
-    if x_don_vi_id is None:
-        app_exception(ErrorCode.HEADER_DONVI_REQUIRED)
-    if not _has_role_in_donvi(current_user, ["ADMIN"], x_don_vi_id):
-        app_exception(ErrorCode.INSUFFICIENT_PERMISSION, extra_detail="ADMIN role required")
+    if x_unit_id is None:
+        app_exception(ErrorCode.HEADER_UNIT_REQUIRED)
+    if not _has_role_in_unit(current_user, ["ADMIN"], x_unit_id):
+        app_exception(
+            ErrorCode.INSUFFICIENT_PERMISSION,
+            extra_detail="ADMIN role required",
+        )
     return current_user
 
 
 def require_manager(
     current_user: TokenData = Depends(get_current_user),
-    x_don_vi_id: str | None = Header(default=None, alias="X-DonVi-Id"),
+    x_unit_id: str | None = Header(default=None, alias="X-Unit-Id"),
 ) -> TokenData:
-    if x_don_vi_id is None:
-        app_exception(ErrorCode.HEADER_DONVI_REQUIRED)
-    if not _has_role_in_donvi(current_user, ["ADMIN", "MANAGER"], x_don_vi_id):
+    if x_unit_id is None:
+        app_exception(ErrorCode.HEADER_UNIT_REQUIRED)
+    if not _has_role_in_unit(current_user, ["ADMIN", "MANAGER"], x_unit_id):
         app_exception(
             ErrorCode.INSUFFICIENT_PERMISSION,
             extra_detail="MANAGER or higher required",
@@ -90,12 +95,12 @@ def require_manager(
 
 def require_staff(
     current_user: TokenData = Depends(get_current_user),
-    x_don_vi_id: str | None = Header(default=None, alias="X-DonVi-Id"),
+    x_unit_id: str | None = Header(default=None, alias="X-Unit-Id"),
 ) -> TokenData:
-    if x_don_vi_id is None:
-        app_exception(ErrorCode.HEADER_DONVI_REQUIRED)
-    if not _has_role_in_donvi(
-        current_user, ["ADMIN", "MANAGER", "STAFF"], x_don_vi_id
+    if x_unit_id is None:
+        app_exception(ErrorCode.HEADER_UNIT_REQUIRED)
+    if not _has_role_in_unit(
+        current_user, ["ADMIN", "MANAGER", "STAFF"], x_unit_id
     ):
         app_exception(
             ErrorCode.INSUFFICIENT_PERMISSION,
@@ -107,6 +112,16 @@ def require_staff(
 def require_user(
     current_user: TokenData = Depends(get_current_user),
 ) -> TokenData:
-    # Bất kỳ user đăng nhập hợp lệ đều pass
     return current_user
 
+
+def require_global_admin(
+    current_user: TokenData = Depends(get_current_user),
+) -> TokenData:
+    has_admin_role = any("ADMIN" in unit_role.roles for unit_role in current_user.roles)
+    if not has_admin_role:
+        app_exception(
+            ErrorCode.INSUFFICIENT_PERMISSION,
+            extra_detail="Global ADMIN role required",
+        )
+    return current_user

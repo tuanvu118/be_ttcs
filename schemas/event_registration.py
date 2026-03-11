@@ -1,6 +1,8 @@
 from datetime import datetime
+
 from beanie import PydanticObjectId
 from pydantic import BaseModel, ConfigDict
+
 
 class EventRegistrationResponse(BaseModel):
     id: PydanticObjectId
@@ -10,13 +12,16 @@ class EventRegistrationResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class EventRegistrationUserResponse(BaseModel):
     user_id: PydanticObjectId
     full_name: str
-    student_code: str
+    student_id: str
     registered_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
 class MyEventRegistrationResponse(BaseModel):
     event_id: PydanticObjectId
     title: str
@@ -24,6 +29,7 @@ class MyEventRegistrationResponse(BaseModel):
     registered_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class MyEventDetailResponse(BaseModel):
     event_id: PydanticObjectId
@@ -34,4 +40,3 @@ class MyEventDetailResponse(BaseModel):
     registered_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-

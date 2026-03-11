@@ -4,24 +4,23 @@ from beanie import PydanticObjectId
 from pydantic import BaseModel, ConfigDict
 
 
-class DonViBase(BaseModel):
-    ten: str
+class UnitBase(BaseModel):
+    name: str
     logo: Optional[str] = None
-    loai: Optional[str] = None
+    type: Optional[str] = None
 
 
-class DonViCreate(DonViBase):
+class UnitCreate(UnitBase):
     pass
 
 
-class DonViUpdate(BaseModel):
-    ten: Optional[str] = None
+class UnitUpdate(BaseModel):
+    name: Optional[str] = None
     logo: Optional[str] = None
-    loai: Optional[str] = None
+    type: Optional[str] = None
 
 
-class DonViRead(DonViBase):
+class UnitRead(UnitBase):
     id: PydanticObjectId
 
     model_config = ConfigDict(from_attributes=True)
-

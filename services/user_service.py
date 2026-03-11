@@ -1,46 +1,47 @@
-from datetime import datetime
 from fastapi import UploadFile
-from passlib.context import CryptContext
 from beanie import PydanticObjectId
-from services.cloudinary_service import upload_image, delete_image
+from passlib.context import CryptContext
 
 from exceptions import ErrorCode, app_exception
 from models.users import User
 from repositories.user_repo import UserRepo
-from schemas.users import UserCreate, UserResponse, UserRead, UserUpdate
+from schemas.users import UserCreate, UserResponse
+from services.cloudinary_service import upload_image
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
 
 class UserService:
     def __init__(self, repo: UserRepo):
         self.repo = repo
 
     def hash_password(self, password: str) -> str:
-        print("DEBUG password repr:", repr(password))
-        print("DEBUG password bytes:", len(password.encode("utf-8")))
         return pwd_context.hash(password)
-    
+
     def verify_passwod(self, plain: str, hashed: str) -> bool:
-        return pwd_context.verify(plain,hashed)
-    
-    async def create_user(self, payload: UserCreate, image: UploadFile) -> UserResponse:
-        url = None
-        public_id = None
+        return pwd_context.verify(plain, hashed)
+
+    async def create_user(
+        self,
+        payload: UserCreate,
+        image: UploadFile | None,
+    ) -> UserResponse:
+        avatar_url = None
         if image:
-            url, public_id = upload_image(image)
-        
+            avatar_url, _ = upload_image(image)
+
         user = User(
-            ho_ten = payload.ho_ten,
+            full_name=payload.full_name,
             email=payload.email,
             password_hash=self.hash_password(payload.password),
-            ma_sv=payload.ma_sv,
-            lop=payload.lop,
-            khoa=payload.khoa,
-            avatar=url,
-            ngay_sinh=payload.ngay_sinh
+            student_id=payload.student_id,
+            class_name=payload.class_name,
+            course_code=payload.course_code,
+            avatar_url=avatar_url,
+            date_of_birth=payload.date_of_birth,
         )
         return await self.repo.create(user)
-    
+
     async def get_user(self, user_id: PydanticObjectId) -> User:
         user = await self.repo.get_by_id(user_id)
         if not user:
@@ -48,4 +49,4 @@ class UserService:
         return user
 
     async def list_users(self, skip: int = 0, limit: int = 20):
-        return await self.repo.list(skip=skip, limit=limit)
+        return await self.repo.get_list(skip=skip, limit=limit)

@@ -13,8 +13,8 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class DonViRole(BaseModel):
-    don_vi_id: str
+class UnitRole(BaseModel):
+    unit_id: str
     roles: List[str]
 
 
@@ -22,5 +22,4 @@ class TokenData(BaseModel):
     sub: str
     email: str
     is_active: bool
-    roles: List[DonViRole]
-
+    roles: List[UnitRole]

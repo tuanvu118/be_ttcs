@@ -1,26 +1,26 @@
 from typing import List
+
 from beanie import PydanticObjectId
 
-from exceptions import app_exception, ErrorCode
+from exceptions import ErrorCode, app_exception
 from models.report import InternalEvent
 from repositories.public_event_repo import PublicEventRepository
 from repositories.report_repo import ReportRepository
 from schemas.auth import TokenData
-from schemas.report import (
-    ReportCreate,
-    ReportUpdate,
-    ReportSummary,
-    ReportDetail,
-    InternalEventCreate,
-    InternalEventUpdate,
-    InternalEventRead,
-    InternalSummary,
-)
 from schemas.public_event import PublicEventSummary
+from schemas.report import (
+    InternalEventCreate,
+    InternalEventRead,
+    InternalEventUpdate,
+    InternalSummary,
+    ReportCreate,
+    ReportDetail,
+    ReportSummary,
+    ReportUpdate,
+)
 
 
 class ReportService:
-
     @staticmethod
     async def _get_report_or_404(report_id: PydanticObjectId):
         report = await ReportRepository.get_by_id(report_id)
@@ -28,32 +28,29 @@ class ReportService:
             app_exception(ErrorCode.REPORT_NOT_FOUND)
         return report
 
-    # =========================
-    # REPORT CRUD
-    # =========================
-
     @staticmethod
     async def create_report(
         unit_id: PydanticObjectId,
         data: ReportCreate,
     ) -> ReportSummary:
-
         existing = await ReportRepository.get_by_unique(
             unit_id=unit_id,
             month=data.month,
-            year=data.year
+            year=data.year,
         )
 
         if existing:
             app_exception(ErrorCode.REPORT_ALREADY_EXISTS)
 
-        report = await ReportRepository.create({
-            "unit_id": unit_id,
-            "month": data.month,
-            "year": data.year,
-            "public_events": [],
-            "internal_events": []
-        })
+        report = await ReportRepository.create(
+            {
+                "unit_id": unit_id,
+                "month": data.month,
+                "year": data.year,
+                "public_events": [],
+                "internal_events": [],
+            }
+        )
 
         return ReportSummary(
             id=report.id,
@@ -67,7 +64,6 @@ class ReportService:
         report_id: PydanticObjectId,
         data: ReportUpdate,
     ) -> ReportSummary:
-
         report = await ReportService._get_report_or_404(report_id)
 
         update_data = data.model_dump(exclude_unset=True)
@@ -78,7 +74,7 @@ class ReportService:
         existing = await ReportRepository.get_by_unique(
             unit_id=report.unit_id,
             month=new_month,
-            year=new_year
+            year=new_year,
         )
 
         if existing and existing.id != report.id:
@@ -98,57 +94,54 @@ class ReportService:
 
     @staticmethod
     async def get_reports_by_unit(
-        unit_id: PydanticObjectId
+        unit_id: PydanticObjectId,
     ) -> List[ReportSummary]:
-
         reports = await ReportRepository.get_by_unit(unit_id)
 
         return [
             ReportSummary(
-                id=r.id,
-                unit_id=r.unit_id,
-                month=r.month,
-                year=r.year,
+                id=report.id,
+                unit_id=report.unit_id,
+                month=report.month,
+                year=report.year,
             )
-            for r in reports
+            for report in reports
         ]
 
     @staticmethod
     async def get_all_reports() -> List[ReportSummary]:
-
         reports = await ReportRepository.get_all()
 
         return [
             ReportSummary(
-                id=r.id,
-                unit_id=r.unit_id,
-                month=r.month,
-                year=r.year,
+                id=report.id,
+                unit_id=report.unit_id,
+                month=report.month,
+                year=report.year,
             )
-            for r in reports
+            for report in reports
         ]
 
     @staticmethod
     async def get_report_detail(
-            report_id: PydanticObjectId,
-            current_user: TokenData
+        report_id: PydanticObjectId,
+        current_user: TokenData,
     ) -> ReportDetail:
-
         report = await ReportService._get_report_or_404(report_id)
 
         has_global_role = any(
-            "ADMIN" in r.roles or "MANAGER" in r.roles
-            for r in current_user.roles
+            "ADMIN" in role.roles or "MANAGER" in role.roles
+            for role in current_user.roles
         )
         is_staff_of_unit = any(
-            "STAFF" in r.roles and str(r.don_vi_id) == str(report.unit_id)
-            for r in current_user.roles
+            "STAFF" in role.roles and str(role.unit_id) == str(report.unit_id)
+            for role in current_user.roles
         )
 
         if not (has_global_role or is_staff_of_unit):
             app_exception(ErrorCode.INSUFFICIENT_PERMISSION)
 
-        pes= await PublicEventRepository.get_by_ids(report.public_event_ids)
+        public_events = await PublicEventRepository.get_by_ids(report.public_event_ids)
 
         return ReportDetail(
             id=report.id,
@@ -157,18 +150,18 @@ class ReportService:
             year=report.year,
             public_events=[
                 PublicEventSummary(
-                    id=pe.id,
-                    title=pe.title
+                    id=public_event.id,
+                    title=public_event.title,
                 )
-                for pe in pes
+                for public_event in public_events
             ],
             internal_events=[
                 InternalSummary(
-                    id=e.id,
-                    title=e.title
+                    id=event.id,
+                    title=event.title,
                 )
-                for e in report.internal_events
-            ]
+                for event in report.internal_events
+            ],
         )
 
     @staticmethod
@@ -176,7 +169,6 @@ class ReportService:
         report_id: PydanticObjectId,
         data: InternalEventCreate,
     ) -> InternalEventRead:
-
         report = await ReportService._get_report_or_404(report_id)
 
         event = InternalEvent(**data.model_dump())
@@ -192,12 +184,11 @@ class ReportService:
         event_id: PydanticObjectId,
         data: InternalEventUpdate,
     ) -> InternalEventRead:
-
         report = await ReportService._get_report_or_404(report_id)
 
         event = next(
-            (e for e in report.internal_events if str(e.id) == str(event_id)),
-            None
+            (item for item in report.internal_events if str(item.id) == str(event_id)),
+            None,
         )
 
         if not event:
@@ -217,14 +208,12 @@ class ReportService:
         report_id: PydanticObjectId,
         event_id: PydanticObjectId,
     ) -> None:
-
         report = await ReportService._get_report_or_404(report_id)
 
         original_len = len(report.internal_events)
 
         report.internal_events = [
-            e for e in report.internal_events
-            if str(e.id) != str(event_id)
+            event for event in report.internal_events if str(event.id) != str(event_id)
         ]
 
         if len(report.internal_events) == original_len:
