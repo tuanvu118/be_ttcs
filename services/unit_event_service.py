@@ -36,7 +36,7 @@ class UnitEventService:
 
 
     async def get_all_unit_events(self) -> List[UnitEventResponse]:
-        events = await self.repo.get_all()
+        events = await self.repo.get_all_active()
         return [UnitEventResponse.model_validate(event) for event in events]
 
     async def get_unit_event_by_id(self, event_id: PydanticObjectId) -> UnitEventResponse:
@@ -61,7 +61,11 @@ class UnitEventService:
     async def delete_unit_event(self, event_id: PydanticObjectId) -> BaseResponse:
         try:
             event = await self.repo.get_by_id(event_id)
-        except Exception as e:
+        except Exception:
             app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
-        await self.repo.delete(event)
+        if event is None:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+
+        event.deleted_at = datetime.now(timezone.utc)
+        await self.repo.update(event)
         return BaseResponse(message="Sự kiện đẩy xuống đơn vị đã được xóa thành công")

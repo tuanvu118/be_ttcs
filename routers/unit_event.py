@@ -7,6 +7,7 @@ from services.unit_event_service import UnitEventService
 from repositories.unit_event_repo import UnitEventRepo
 from schemas.auth import TokenData
 from typing import List
+from beanie import PydanticObjectId
 
 router = APIRouter(prefix="/unit-events", tags=["Unit Events"])
 
@@ -49,7 +50,7 @@ async def Lấy_danh_sách_tất_cả_sự_kiện_đẩy_xuống_đơn_vị(
 
 @router.get("/{event_id}", response_model=UnitEventResponse, dependencies=[Depends(require_manager)])
 async def Lấy_một_sự_kiện_đẩy_xuống_đơn_vị_theo_id(
-    event_id: str,
+    event_id: PydanticObjectId,
     _ = Depends(require_staff),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> UnitEventResponse:
@@ -62,7 +63,7 @@ async def Lấy_một_sự_kiện_đẩy_xuống_đơn_vị_theo_id(
 
 @router.put("/{event_id}", response_model=BaseResponse, dependencies=[Depends(require_manager)])
 async def Cập_nhat_sự_kiện_đẩy_xuống_đơn_vị(
-    event_id: str,
+    event_id: PydanticObjectId,
     data: UnitEventUpdate,
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
@@ -78,12 +79,12 @@ async def Cập_nhat_sự_kiện_đẩy_xuống_đơn_vị(
 
 @router.delete("/{event_id}", response_model=BaseResponse, dependencies=[Depends(require_manager)])
 async def Xóa_sự_kiện_đẩy_xuống_đơn_vị(
-    event_id: str,
+    event_id: PydanticObjectId,
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> BaseResponse:
     """
-    Xóa sự kiện đẩy xuống đơn vị theo id
+    Xóa mềm sự kiện đẩy xuống đơn vị theo id
     
     Quyền xóa: VPĐ hoặc ADMIN
     """
