@@ -13,9 +13,6 @@ class UnitEventCreate(BaseModel):
     point: Decimal = Field(default=Decimal("0"))
     type: UnitEventEnum
 
-
-
-
 class UnitEventResponse(BaseModel):
     id: PydanticObjectId
     title: str
@@ -26,3 +23,8 @@ class UnitEventResponse(BaseModel):
     created_by: PydanticObjectId
 
     model_config = ConfigDict(from_attributes=True)
+
+class UnitEventUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    point: Optional[Decimal] = None

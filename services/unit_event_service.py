@@ -1,6 +1,7 @@
 from beanie.odm.actions import P
 from repositories.unit_event_repo import UnitEventRepo
-from schemas.unit_event import UnitEventCreate, UnitEventResponse
+from schemas.unit_event import UnitEventCreate, UnitEventResponse, UnitEventUpdate
+from schemas.response import BaseResponse
 from models.unit_event import UnitEvent, UnitEventEnum
 from datetime import datetime, timezone
 from beanie import PydanticObjectId
@@ -37,3 +38,30 @@ class UnitEventService:
     async def get_all_unit_events(self) -> List[UnitEventResponse]:
         events = await self.repo.get_all()
         return [UnitEventResponse.model_validate(event) for event in events]
+
+    async def get_unit_event_by_id(self, event_id: PydanticObjectId) -> UnitEventResponse:
+        try:
+            event = await self.repo.get_by_id(event_id)
+        except Exception as e:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        return UnitEventResponse.model_validate(event)
+
+    async def update_unit_event(self, event_id: PydanticObjectId, data: UnitEventUpdate) -> BaseResponse:
+        try:
+            event = await self.repo.get_by_id(event_id)
+        except Exception as e:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(event, field, value)
+        saved = await self.repo.update(event)
+        return BaseResponse(message="Sự kiện đẩy xuống đơn vị đã được cập nhật thành công")
+
+    async def delete_unit_event(self, event_id: PydanticObjectId) -> BaseResponse:
+        try:
+            event = await self.repo.get_by_id(event_id)
+        except Exception as e:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        await self.repo.delete(event)
+        return BaseResponse(message="Sự kiện đẩy xuống đơn vị đã được xóa thành công")

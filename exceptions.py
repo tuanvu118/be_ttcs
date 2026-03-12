@@ -28,6 +28,9 @@ class ErrorCode(int, Enum):
 
     INVALID_POINT_VALUE = 100
     INVALID_UNIT_EVENT_TYPE_VALUE = 101
+
+    UNIT_EVENT_NOT_FOUND = 110
+
     SEMESTER_NOT_FOUND = 110
     ACTIVE_SEMESTER_NOT_FOUND = 111
     INVALID_SEMESTER_TIME = 112
@@ -113,6 +116,11 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.INVALID_SEMESTER_TIME: {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Thoi gian semester khong hop le",
+    },
+
+    ErrorCode.UNIT_EVENT_NOT_FOUND: {
+        "status": status.HTTP_404_NOT_FOUND,
+        "message": "Sự kiện đẩy xuống đơn vị không tồn tại",
     },
 }
 
