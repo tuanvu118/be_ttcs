@@ -1,25 +1,25 @@
 from datetime import datetime, timezone
+
 from beanie import PydanticObjectId
 
-from exceptions import app_exception, ErrorCode
-from repositories.public_event_repo import PublicEventRepository
+from exceptions import ErrorCode, app_exception
 from repositories.event_registration_repo import EventRegistrationRepository
+from repositories.public_event_repo import PublicEventRepository
 from repositories.user_repo import UserRepo
-
 from schemas.event_registration import (
     EventRegistrationResponse,
     EventRegistrationUserResponse,
-    MyEventRegistrationResponse, MyEventDetailResponse,
+    MyEventDetailResponse,
+    MyEventRegistrationResponse,
 )
 
-class EventRegistrationService:
 
+class EventRegistrationService:
     @staticmethod
     async def register(
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
     ) -> EventRegistrationResponse:
-
         event = await PublicEventRepository.get_by_id(event_id)
         if not event:
             app_exception(ErrorCode.EVENT_NOT_FOUND)
@@ -45,7 +45,6 @@ class EventRegistrationService:
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
     ) -> None:
-
         deleted = await EventRegistrationRepository.delete_by_event_and_user(
             event_id, user_id
         )
@@ -57,22 +56,18 @@ class EventRegistrationService:
     async def get_my_registrations(
         user_id: PydanticObjectId,
     ) -> list[MyEventRegistrationResponse]:
-
         registrations = await EventRegistrationRepository.get_by_user(user_id)
 
         if not registrations:
             return []
 
-        event_ids = [r.event_id for r in registrations]
-
+        event_ids = [registration.event_id for registration in registrations]
         events = await PublicEventRepository.get_by_ids(event_ids)
-
-        event_map = {e.id: e for e in events}
+        event_map = {event.id: event for event in events}
 
         result = []
-
-        for r in registrations:
-            event = event_map.get(r.event_id)
+        for registration in registrations:
+            event = event_map.get(registration.event_id)
             if not event:
                 continue
 
@@ -81,7 +76,7 @@ class EventRegistrationService:
                     event_id=event.id,
                     title=event.title,
                     event_start=event.event_start,
-                    registered_at=r.registered_at,
+                    registered_at=registration.registered_at,
                 )
             )
 
@@ -91,26 +86,21 @@ class EventRegistrationService:
     async def get_event_registrations(
         event_id: PydanticObjectId,
     ) -> list[EventRegistrationUserResponse]:
-
         event = await PublicEventRepository.get_by_id(event_id)
         if not event:
             app_exception(ErrorCode.EVENT_NOT_FOUND)
 
         registrations = await EventRegistrationRepository.get_by_event(event_id)
-
         if not registrations:
             return []
 
-        user_ids = [r.user_id for r in registrations]
-
+        user_ids = [registration.user_id for registration in registrations]
         users = await UserRepo.get_by_ids(user_ids)
-
-        user_map = {u.id: u for u in users}
+        user_map = {user.id: user for user in users}
 
         result = []
-
-        for r in registrations:
-            user = user_map.get(r.user_id)
+        for registration in registrations:
+            user = user_map.get(registration.user_id)
             if not user:
                 continue
 
@@ -118,8 +108,8 @@ class EventRegistrationService:
                 EventRegistrationUserResponse(
                     user_id=user.id,
                     full_name=user.full_name,
-                    student_code=user.student_code,
-                    registered_at=r.registered_at,
+                    student_id=user.student_id,
+                    registered_at=registration.registered_at,
                 )
             )
 
@@ -127,10 +117,9 @@ class EventRegistrationService:
 
     @staticmethod
     async def get_my_event_detail(
-            event_id: PydanticObjectId,
-            user_id: PydanticObjectId,
+        event_id: PydanticObjectId,
+        user_id: PydanticObjectId,
     ) -> MyEventDetailResponse:
-
         event = await PublicEventRepository.get_by_id(event_id)
         if not event:
             app_exception(ErrorCode.EVENT_NOT_FOUND)

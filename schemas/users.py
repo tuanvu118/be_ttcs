@@ -1,60 +1,64 @@
-from typing import List,Optional
-from beanie import PydanticObjectId
 import re
-from pydantic import BaseModel,field_validator,ConfigDict
-from models.users import User
-from fastapi_pagination import Params
 from datetime import datetime
+from typing import Optional
+
+from beanie import PydanticObjectId
+from pydantic import BaseModel, ConfigDict, field_validator
+
 
 class UserBase(BaseModel):
-    ho_ten: str
+    full_name: str
     email: str
-    ma_sv: str
-    lop: str
-    khoa: Optional[str] = None
-    avatar: Optional[str] = None
-    ngay_sinh: Optional[datetime] = None
+    student_id: str
+    class_name: str
+    course_code: Optional[str] = None
+    avatar_url: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
 
     @field_validator("email")
-    def validate_email(cls, v):
-        if v is None:
-            return None
+    def validate_email(cls, value: str):
         email_regex = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
-        if not re.match(email_regex, v):
-            raise ValueError("Email không hợp lệ")
-        return v    
-    
+        if not re.match(email_regex, value):
+            raise ValueError("Email khong hop le")
+        return value
+
+
 class UserRead(UserBase):
     id: PydanticObjectId
-    model_config = ConfigDict(from_attributes=True)    
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 class UserUpdate(BaseModel):
-    ho_ten: Optional[str] = None
+    full_name: Optional[str] = None
     email: Optional[str] = None
     password_hash: Optional[str] = None
-    ma_sv: Optional[str] = None
-    lop: Optional[str] = None
-    khoa: Optional[str] = None
-    ngay_sinh: Optional[datetime] = None
-    
+    student_id: Optional[str] = None
+    class_name: Optional[str] = None
+    course_code: Optional[str] = None
+    avatar_url: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
+
     @field_validator("email")
-    def validate_email(cls, v):
-        if not v or v.strip() == "":
-            return None  # Không cập nhật nếu chuỗi rỗng
+    def validate_email(cls, value: Optional[str]):
+        if not value or value.strip() == "":
+            return None
         email_regex = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
-        if not re.match(email_regex, v):
-            return ValueError("Email không hợp lệ")
-        return v.strip()
-    
+        if not re.match(email_regex, value):
+            raise ValueError("Email khong hop le")
+        return value.strip()
+
+
 class UserResponse(UserBase):
     pass
+
 
 class UserCreate(UserBase):
     password: str
 
     @field_validator("password")
     @classmethod
-    def validate_password(cls, v: str):
-        if len(v) < 6:
-            raise ValueError("Mật khẩu phải >= 6 ký tự")
-        return v
+    def validate_password(cls, value: str):
+        if len(value) < 6:
+            raise ValueError("Mat khau phai >= 6 ky tu")
+        return value

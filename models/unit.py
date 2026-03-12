@@ -4,16 +4,16 @@ from typing import Optional
 from beanie import Document
 
 
-class DonViType(str, Enum):
+class UnitType(str, Enum):
     LCK = "LCK"
     CLB = "CLB"
     SYSTEM = "SYSTEM"
 
 
-class DonVi(Document):
-    ten: str
+class Unit(Document):
+    name: str
     logo: Optional[str] = None
-    loai: DonViType = DonViType.CLB
+    type: UnitType = UnitType.CLB
 
     class Settings:
-        name = "don_vi"
+        name = "units"

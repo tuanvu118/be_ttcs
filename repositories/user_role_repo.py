@@ -7,9 +7,7 @@ from models.users_roles import UserRole
 
 class UserRoleRepo:
     async def list_by_user(self, user_id: PydanticObjectId) -> List[UserRole]:
-        return await UserRole.find(
-            UserRole.user_id == user_id
-        ).to_list()
+        return await UserRole.find(UserRole.user_id == user_id).to_list()
 
     async def list_active_by_user(self, user_id: PydanticObjectId) -> List[UserRole]:
         return await UserRole.find(
@@ -17,12 +15,12 @@ class UserRoleRepo:
             UserRole.is_active == True,
         ).to_list()
 
-    async def list_active_by_user_and_don_vi(
-        self, user_id: PydanticObjectId, don_vi_id: PydanticObjectId
+    async def list_active_by_user_and_unit(
+        self, user_id: PydanticObjectId, unit_id: PydanticObjectId
     ) -> List[UserRole]:
         return await UserRole.find(
             UserRole.user_id == user_id,
-            UserRole.don_vi_id == don_vi_id,
+            UserRole.unit_id == unit_id,
             UserRole.is_active == True,
         ).to_list()
 

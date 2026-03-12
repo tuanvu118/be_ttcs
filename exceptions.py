@@ -5,20 +5,15 @@ from fastapi import HTTPException, status
 
 
 class ErrorCode(int, Enum):
-
-
-
-
-
     USER_NOT_FOUND = 10
-    DONVI_NOT_FOUND = 20
+    UNIT_NOT_FOUND = 20
     INVALID_IMAGE_TYPE = 30
 
     INVALID_CREDENTIALS = 40
     INVALID_TOKEN = 41
 
     INSUFFICIENT_PERMISSION = 50
-    HEADER_DONVI_REQUIRED = 60
+    HEADER_UNIT_REQUIRED = 60
 
     EVENT_NOT_FOUND = 70
     INVALID_REGISTRATION_TIME = 71
@@ -36,59 +31,60 @@ class ErrorCode(int, Enum):
 
     UNIT_EVENT_NOT_FOUND = 110
 
+    SEMESTER_NOT_FOUND = 110
+    ACTIVE_SEMESTER_NOT_FOUND = 111
+    INVALID_SEMESTER_TIME = 112
 
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
-        "message": "User không tồn tại",
+        "message": "User khong ton tai",
     },
-    ErrorCode.DONVI_NOT_FOUND: {
+    ErrorCode.UNIT_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
-        "message": "Đơn vị không tồn tại",
+        "message": "Unit khong ton tai",
     },
     ErrorCode.INVALID_IMAGE_TYPE: {
         "status": status.HTTP_400_BAD_REQUEST,
-        "message": "Chỉ cho phép upload ảnh JPG/PNG",
+        "message": "Chi cho phep upload anh JPG/PNG",
     },
     ErrorCode.INVALID_CREDENTIALS: {
         "status": status.HTTP_401_UNAUTHORIZED,
-        "message": "Thông tin đăng nhập không chính xác",
+        "message": "Thong tin dang nhap khong chinh xac",
     },
     ErrorCode.INVALID_TOKEN: {
         "status": status.HTTP_401_UNAUTHORIZED,
-        "message": "Token không hợp lệ hoặc đã hết hạn",
+        "message": "Token khong hop le hoac da het han",
     },
     ErrorCode.INSUFFICIENT_PERMISSION: {
         "status": status.HTTP_403_FORBIDDEN,
-        "message": "Bạn không có đủ quyền để thực hiện hành động này",
+        "message": "Ban khong co du quyen de thuc hien hanh dong nay",
     },
-    ErrorCode.HEADER_DONVI_REQUIRED: {
+    ErrorCode.HEADER_UNIT_REQUIRED: {
         "status": status.HTTP_400_BAD_REQUEST,
-        "message": "Thiếu header X-DonVi-Id",
+        "message": "Thieu header X-Unit-Id",
     },
     ErrorCode.EVENT_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
-        "message": "Sự kiện không tồn tại",
+        "message": "Su kien khong ton tai",
     },
     ErrorCode.REPORT_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
-        "message": "Báo cáo không tồn tại",
+        "message": "Bao cao khong ton tai",
     },
     ErrorCode.REPORT_ALREADY_EXISTS: {
         "status": status.HTTP_400_BAD_REQUEST,
-        "message": "Đã có báo cáo như vậy rồi",
+        "message": "Da co bao cao nhu vay roi",
     },
     ErrorCode.REGISTRATION_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
-        "message": "Chưa đăng ký sự tham gia sự kiện",
+        "message": "Chua dang ky su tham gia su kien",
     },
-
     ErrorCode.ALREADY_REGISTERED: {
         "status": status.HTTP_400_BAD_REQUEST,
-        "message": "Đã đăng ký sự tham gia sự kiện rồi",
+        "message": "Da dang ky su tham gia su kien roi",
     },
-
     ErrorCode.INVALID_REGISTRATION_TIME: {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Thoi gian dang ky khong hop le",
@@ -101,14 +97,25 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Thoi gian su kien phai sau thoi gian dang ky",
     },
-
     ErrorCode.INVALID_POINT_VALUE: {
         "status": status.HTTP_400_BAD_REQUEST,
-        "message": "Giá trị điểm không hợp lệ",
+        "message": "Gia tri diem khong hop le",
     },
     ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE: {
         "status": status.HTTP_400_BAD_REQUEST,
-        "message": "Loại sự kiện không hợp lệ",
+        "message": "Loai su kien khong hop le",
+    },
+    ErrorCode.SEMESTER_NOT_FOUND: {
+        "status": status.HTTP_404_NOT_FOUND,
+        "message": "Semester khong ton tai",
+    },
+    ErrorCode.ACTIVE_SEMESTER_NOT_FOUND: {
+        "status": status.HTTP_404_NOT_FOUND,
+        "message": "Khong co semester dang hoat dong",
+    },
+    ErrorCode.INVALID_SEMESTER_TIME: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Thoi gian semester khong hop le",
     },
 
     ErrorCode.UNIT_EVENT_NOT_FOUND: {
@@ -119,14 +126,7 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
 
 
 def app_exception(code: ErrorCode, extra_detail: Optional[str] = None) -> None:
-    """
-    Ném HTTPException dựa trên mã lỗi tập trung.
-
-    - code: mã lỗi nội bộ (ErrorCode)
-    - extra_detail: nếu muốn bổ sung chi tiết cụ thể cho lỗi.
-    """
     info = ERROR_DEFINITIONS[code]
     base_msg = info["message"]
     detail = f"{base_msg}: {extra_detail}" if extra_detail else base_msg
     raise HTTPException(status_code=info["status"], detail=detail)  # type: ignore[arg-type]
-
