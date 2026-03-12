@@ -29,12 +29,12 @@ class ErrorCode(int, Enum):
     INVALID_POINT_VALUE = 100
     INVALID_UNIT_EVENT_TYPE_VALUE = 101
 
-    UNIT_EVENT_NOT_FOUND = 110
-
     SEMESTER_NOT_FOUND = 110
     ACTIVE_SEMESTER_NOT_FOUND = 111
     INVALID_SEMESTER_TIME = 112
+    INVALID_ID_FORMAT = 113
 
+    UNIT_EVENT_NOT_FOUND = 120
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
@@ -116,6 +116,10 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.INVALID_SEMESTER_TIME: {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Thoi gian semester khong hop le",
+    },
+    ErrorCode.INVALID_ID_FORMAT: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "ID không đúng định dạng ObjectId",
     },
 
     ErrorCode.UNIT_EVENT_NOT_FOUND: {
