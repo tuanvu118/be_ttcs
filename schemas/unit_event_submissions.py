@@ -19,3 +19,8 @@ class UnitEventSubmissionResponse(BaseModel):
     submittedAt: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UnitEventSubmissionUpdate(BaseModel):
+    content: str | None = None
+    evidenceUrl: str | None = None

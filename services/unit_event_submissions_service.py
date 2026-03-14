@@ -1,6 +1,10 @@
 from repositories.unit_event_submissions_repo import UnitEventSubmissionsRepo
-from schemas.unit_event_submissions import UnitEventSubmissionCreate, UnitEventSubmissionResponse
-from models.unit_event_submissions import UnitEventSubmission
+from schemas.unit_event_submissions import (
+    UnitEventSubmissionCreate,
+    UnitEventSubmissionResponse,
+    UnitEventSubmissionUpdate,
+)
+from models.unit_event_submissions import UnitEventSubmission, UnitEventSubmissionStatus
 from models.unit_event import UnitEvent
 from exceptions import ErrorCode, app_exception
 from models.unit_event import UnitEventEnum
@@ -50,3 +54,31 @@ class UnitEventSubmissionsService:
         if not submission:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
         return UnitEventSubmissionResponse.model_validate(submission)
+
+    async def update_unit_event_submission(
+        self,
+        unit_event_id: PydanticObjectId | str,
+        unit_id: PydanticObjectId | str,
+        data: UnitEventSubmissionUpdate,
+    ) -> UnitEventSubmissionResponse:
+        parsed_unit_event_id = self._parse_object_id(unit_event_id, "unit_event_id")
+        parsed_unit_id = self._parse_object_id(unit_id, "unit_id")
+
+        submission = await self.repo.get_by_unit_event_id_and_unit_id(
+            parsed_unit_event_id, parsed_unit_id
+        )
+        if not submission:
+            app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
+
+        if submission.status == UnitEventSubmissionStatus.APPROVED:
+            app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_APPROVED)
+
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(submission, field, value)
+        if submission.status == UnitEventSubmissionStatus.REJECTED:
+            submission.status = UnitEventSubmissionStatus.PENDING
+        submission.submittedAt = datetime.now()
+
+        saved = await self.repo.update(submission)
+        return UnitEventSubmissionResponse.model_validate(saved)

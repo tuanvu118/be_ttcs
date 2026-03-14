@@ -1,5 +1,8 @@
 from fastapi import APIRouter
-from schemas.unit_event_submissions import UnitEventSubmissionResponse
+from schemas.unit_event_submissions import (
+    UnitEventSubmissionResponse,
+    UnitEventSubmissionUpdate,
+)
 from typing import List
 from beanie import PydanticObjectId
 from schemas.auth import TokenData
@@ -38,3 +41,24 @@ async def Lấy_phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông_theo_sự_ki
     return await service.get_unit_event_submissions_by_unit_event_id(
         unit_event_id, x_unit_id
     )
+
+
+@router.put("/HTTT", response_model=UnitEventSubmissionResponse)
+async def Sửa_phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông(
+    unit_event_id: PydanticObjectId,
+    data: UnitEventSubmissionUpdate,
+    x_unit_id: str = Header(..., alias="X-Unit-Id"),
+    current_user: TokenData = Depends(require_staff),
+    service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
+) -> UnitEventSubmissionResponse:
+    """
+    Sửa phản hồi sự kiện Hỗ trợ Truyền Thông theo unit_event_id và X-Unit-Id.
+
+    Các trường có thể cập nhật:
+    - content: str
+    - evidenceUrl: str
+
+    Quyền: Staff đơn vị
+    Chỉ có thể sửa khi ở trạng thái PENDING hoặc REJECTED, sau khi sửa sẽ tự động chuyển sang trạng thái PENDING
+    """
+    return await service.update_unit_event_submission(unit_event_id, x_unit_id, data)
