@@ -15,7 +15,7 @@ from models.unit_event_assigned_units import UnitEventAssignedUnits
 from models.users import User
 from models.users_roles import UserRole
 from models.unit_event_submissions import UnitEventSubmission
-
+from models.unit_event_submission_members import UnitEventSubmissionMember
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI")
@@ -39,6 +39,7 @@ async def init_db():
             UnitEvent,
             UnitEventAssignedUnits,
             UnitEventSubmission,
+            UnitEventSubmissionMember,
         ],
     )
 

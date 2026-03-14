@@ -2,6 +2,8 @@ from fastapi import APIRouter
 from schemas.unit_event_submissions import (
     UnitEventSubmissionResponse,
     UnitEventSubmissionUpdate,
+    UnitEventSubmissionMemberCreate,
+    UnitEventSubmissionMemberResponse,
 )
 from typing import List
 from beanie import PydanticObjectId
@@ -11,11 +13,15 @@ from fastapi import Depends, Header, status
 from schemas.unit_event_submissions import UnitEventSubmissionCreate
 from services.unit_event_submissions_service import UnitEventSubmissionsService
 from repositories.unit_event_submissions_repo import UnitEventSubmissionsRepo
+from repositories.unit_event_submission_members_repo import UnitEventSubmissionMembersRepo
 
 router = APIRouter(prefix="/unit-event-submissions", tags=["Phản hồi Sự kiện"])
 
 def get_unit_event_submission_service() -> UnitEventSubmissionsService:
-    return UnitEventSubmissionsService(UnitEventSubmissionsRepo())
+    return UnitEventSubmissionsService(
+        UnitEventSubmissionsRepo(),
+        UnitEventSubmissionMembersRepo(),
+    )
 
 @router.post("/HTTT", response_model=UnitEventSubmissionResponse, status_code=status.HTTP_201_CREATED)
 async def Phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông(
@@ -62,3 +68,34 @@ async def Sửa_phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông(
     Chỉ có thể sửa khi ở trạng thái PENDING hoặc REJECTED, sau khi sửa sẽ tự động chuyển sang trạng thái PENDING
     """
     return await service.update_unit_event_submission(unit_event_id, x_unit_id, data)
+
+########################################################################################
+#Phản hồi sự kiện có danh sách thành viên
+########################################################################################
+@router.post("/HTSK", response_model=UnitEventSubmissionMemberResponse)
+async def Tạo_phản_hồi_HTSK(
+    data: UnitEventSubmissionMemberCreate,
+    x_unit_id: str = Header(..., alias="X-Unit-Id"),
+    current_user: TokenData = Depends(require_staff),
+    service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
+) -> UnitEventSubmissionMemberResponse:
+    """
+    Tạo phản hồi HTSK có danh sách thành viên
+
+    Danh sách thành viên: List[str] Mã sinh viên
+
+    Quyền: Staff đơn vị
+    """
+    return await service.create_unit_event_submission_member(data, x_unit_id)
+
+@router.get("/HTSK", response_model=UnitEventSubmissionMemberResponse)
+async def Lấy_phản_hồi_HTSK_theo_sự_kiện_id(
+    unit_event_id: PydanticObjectId,
+    x_unit_id: str = Header(..., alias="X-Unit-Id"),
+    current_user: TokenData = Depends(require_staff),
+    service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
+) -> UnitEventSubmissionMemberResponse:
+    """
+    Lấy phản hồi HTSK theo sự kiện id
+    """
+    return await service.get_unit_event_submissions_HTSK_by_unit_event_id(unit_event_id, x_unit_id)

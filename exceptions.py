@@ -39,6 +39,7 @@ class ErrorCode(int, Enum):
     UNIT_EVENT_SUBMISSION_ALREADY_EXISTS = 122
     UNIT_EVENT_SUBMISSION_NOT_FOUND = 123
     UNIT_EVENT_SUBMISSION_ALREADY_APPROVED = 124
+    LIST_USER_ID_IS_REQUIRED = 125
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
@@ -141,6 +142,10 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_APPROVED: {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Phản hồi đã được duyệt, bạn chỉ có thể sửa khi ở trạng thái PENDING hoặc REJECTED",
+    },
+    ErrorCode.LIST_USER_ID_IS_REQUIRED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Danh sách thành viên không được để trống",
     },
 }
 
