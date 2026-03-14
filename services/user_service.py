@@ -7,6 +7,7 @@ from models.users import User
 from repositories.user_repo import UserRepo
 from schemas.users import UserCreate, UserResponse
 from services.cloudinary_service import upload_image
+from typing import List
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
@@ -50,3 +51,12 @@ class UserService:
 
     async def list_users(self, skip: int = 0, limit: int = 20):
         return await self.repo.get_list(skip=skip, limit=limit)
+
+
+    async def get_users_by_msv(self, list_msv: List[str]) -> List[User]:
+        users = await self.repo.get_by_student_ids(list_msv)
+        return users
+    
+    async def get_users_by_id(self, list_user_id: List[PydanticObjectId]) -> List[User]:
+        users = await self.repo.get_by_ids(list_user_id)
+        return users
