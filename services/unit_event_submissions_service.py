@@ -38,3 +38,15 @@ class UnitEventSubmissionsService:
         )
         saved = await self.repo.create(unit_event_submission)
         return UnitEventSubmissionResponse.model_validate(saved)
+    
+    async def get_unit_event_submissions_by_unit_event_id(
+        self, unit_event_id: PydanticObjectId | str, unit_id: PydanticObjectId | str
+    ) -> UnitEventSubmissionResponse:
+        parsed_unit_event_id = self._parse_object_id(unit_event_id, "unit_event_id")
+        parsed_unit_id = self._parse_object_id(unit_id, "unit_id")
+        submission = await self.repo.get_by_unit_event_id_and_unit_id(
+            parsed_unit_event_id, parsed_unit_id
+        )
+        if not submission:
+            app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
+        return UnitEventSubmissionResponse.model_validate(submission)
