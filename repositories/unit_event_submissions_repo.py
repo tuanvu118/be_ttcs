@@ -17,3 +17,9 @@ class UnitEventSubmissionsRepo:
     
     async def delete(self, unit_event_submission: UnitEventSubmission) -> None:
         await unit_event_submission.delete()
+
+    async def get_by_unit_event_id_and_unit_id(self, unit_event_id: PydanticObjectId, unit_id: PydanticObjectId) -> Optional[UnitEventSubmission]:
+        return await UnitEventSubmission.find_one(
+            UnitEventSubmission.unitEventId == unit_event_id,
+            UnitEventSubmission.unitId == unit_id
+        )

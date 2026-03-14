@@ -1,6 +1,7 @@
 from beanie import Document, PydanticObjectId
 from datetime import datetime
 from enum import Enum
+from pydantic import Field
 
 class UnitEventSubmissionStatus(str, Enum):
     PENDING = "PENDING"
@@ -13,8 +14,9 @@ class UnitEventSubmission(Document):
 
     content: str
     evidenceUrl: str
-    status: UnitEventSubmissionStatus
-    submittedAt: datetime
+    status: UnitEventSubmissionStatus = Field(default=UnitEventSubmissionStatus.PENDING)
+    submittedAt: datetime = Field(default_factory=datetime.now)
 
     class Settings:
         name = "unit_event_submissions"
+        

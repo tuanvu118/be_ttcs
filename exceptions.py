@@ -35,6 +35,8 @@ class ErrorCode(int, Enum):
     INVALID_ID_FORMAT = 113
 
     UNIT_EVENT_NOT_FOUND = 120
+    INVALID_UNIT_EVENT_TYPE = 121
+    UNIT_EVENT_SUBMISSION_ALREADY_EXISTS = 122
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
@@ -125,6 +127,10 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.UNIT_EVENT_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
         "message": "Sự kiện đẩy xuống đơn vị không tồn tại",
+    },
+    ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_EXISTS: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Đơn vị của bạn đã phản hồi sự kiện này rồi",
     },
 }
 

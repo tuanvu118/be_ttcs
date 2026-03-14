@@ -14,6 +14,7 @@ from models.unit_event import UnitEvent
 from models.unit_event_assigned_units import UnitEventAssignedUnits
 from models.users import User
 from models.users_roles import UserRole
+from models.unit_event_submissions import UnitEventSubmission
 
 load_dotenv()
 
@@ -37,6 +38,7 @@ async def init_db():
             EventRegistration,
             UnitEvent,
             UnitEventAssignedUnits,
+            UnitEventSubmission,
         ],
     )
 
