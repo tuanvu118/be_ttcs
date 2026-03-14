@@ -18,6 +18,13 @@ class UnitEventAssignedUnitsRepo:
         return await UnitEventAssignedUnits.find(
             UnitEventAssignedUnits.unitEventId == unit_event_id
         ).to_list()
+
+    async def list_by_unit_id(
+        self, unit_id: PydanticObjectId
+    ) -> List[UnitEventAssignedUnits]:
+        return await UnitEventAssignedUnits.find(
+            UnitEventAssignedUnits.unitId == unit_id
+        ).to_list()
     
     async def update(self, unit_event_assigned_units: UnitEventAssignedUnits) -> UnitEventAssignedUnits:
         return await unit_event_assigned_units.save()

@@ -27,6 +27,14 @@ class UnitEventResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class UnitEventResponseByUnitId(BaseModel):
+    id: PydanticObjectId
+    title: str
+    description: Optional[str] = None
+    point: Decimal = Field(default=Decimal("0"))
+    type: UnitEventEnum
+    created_at: datetime
+
 class UnitEventUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None

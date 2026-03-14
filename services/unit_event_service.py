@@ -1,5 +1,5 @@
 from repositories.unit_event_repo import UnitEventRepo
-from schemas.unit_event import UnitEventCreate, UnitEventResponse, UnitEventUpdate
+from schemas.unit_event import UnitEventCreate, UnitEventResponse, UnitEventUpdate, UnitEventResponseByUnitId
 from schemas.response import BaseResponse
 from models.unit_event import UnitEvent, UnitEventEnum
 from models.unit_event_assigned_units import UnitEventAssignedUnits
@@ -9,6 +9,7 @@ from typing import List
 from exceptions import ErrorCode, app_exception
 from repositories.unit_event_assigned_units_repo import UnitEventAssignedUnitsRepo
 from repositories.unit_repo import UnitRepo
+from repositories.user_role_repo import UserRoleRepo
 from schemas.unit import UnitBase
 
 class UnitEventService:
@@ -17,12 +18,14 @@ class UnitEventService:
         repo: UnitEventRepo,
         unit_event_assigned_units_repo: UnitEventAssignedUnitsRepo | None = None,
         unit_repo: UnitRepo | None = None,
+        user_role_repo: UserRoleRepo | None = None,
     ) -> None:
         self.repo = repo
         self.unit_event_assigned_units_repo = (
             unit_event_assigned_units_repo or UnitEventAssignedUnitsRepo()
         )
         self.unit_repo = unit_repo or UnitRepo()
+        self.user_role_repo = user_role_repo or UserRoleRepo()
 
     def _parse_object_id(self, value: PydanticObjectId | str, field_name: str) -> PydanticObjectId:
         try:
@@ -72,6 +75,15 @@ class UnitEventService:
             assigned_units=assigned_units,
         )
 
+    async def _build_event_response_by_unit_id(self, event: UnitEvent) -> UnitEventResponseByUnitId:
+        return UnitEventResponseByUnitId(
+            id=event.id,
+            title=event.title,
+            description=event.description,
+            point=event.point,
+            type=event.type,
+            created_at=event.created_at,
+        )
     async def create_unit_event(
         self, 
         payload: UnitEventCreate,
@@ -106,6 +118,31 @@ class UnitEventService:
     async def get_all_unit_events(self) -> List[UnitEventResponse]:
         events = await self.repo.get_all_active()
         return [await self._build_event_response(event) for event in events]
+
+
+    async def get_unit_events_by_unit_id(self, user_id: PydanticObjectId | str) -> List[UnitEventResponseByUnitId]:
+        parsed_user_id = self._parse_object_id(user_id, "user_id")
+        user_roles = await self.user_role_repo.list_active_by_user(parsed_user_id)
+        if not user_roles:
+            app_exception(
+                ErrorCode.UNIT_NOT_FOUND,
+                extra_detail="User chưa được gán vào đơn vị nào",
+            )
+
+        unit_ids = list(dict.fromkeys([ur.unit_id for ur in user_roles]))
+        assigned_links = []
+        for unit_id in unit_ids:
+            links = await self.unit_event_assigned_units_repo.list_by_unit_id(unit_id)
+            assigned_links.extend(links)
+
+        event_ids = list(dict.fromkeys([link.unitEventId for link in assigned_links]))
+        events: List[UnitEvent] = []
+        for event_id in event_ids:
+            event = await self.repo.get_by_id(event_id)
+            if event is not None:
+                events.append(event)
+
+        return [await self._build_event_response_by_unit_id(event) for event in events]
 
     async def get_unit_event_by_id(self, event_id: PydanticObjectId | str) -> UnitEventResponse:
         parsed_event_id = self._parse_object_id(event_id, "event_id")

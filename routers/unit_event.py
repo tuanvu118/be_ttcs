@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends
 from fastapi import status
-from schemas.unit_event import UnitEventCreate, UnitEventResponse, UnitEventUpdate
+from schemas.unit_event import (
+    UnitEventCreate,
+    UnitEventResponse,
+    UnitEventResponseByUnitId,
+    UnitEventUpdate,
+)
 from schemas.response import BaseResponse
 from security import require_manager, require_staff
 from services.unit_event_service import UnitEventService
@@ -36,7 +41,7 @@ async def tạo_sự_kiện_đẩy_xuống_đơn_vị(
     """
     return await service.create_unit_event(data, current_user.sub)
 
-@router.get("/", response_model=List[UnitEventResponse], dependencies=[Depends(require_manager)])
+@router.get("/all", response_model=List[UnitEventResponse], dependencies=[Depends(require_manager)])
 async def Lấy_danh_sách_tất_cả_sự_kiện_đẩy_xuống_đơn_vị(
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
@@ -47,6 +52,19 @@ async def Lấy_danh_sách_tất_cả_sự_kiện_đẩy_xuống_đơn_vị(
     Quyền xem: VPĐ hoặc ADMIN
     """
     return await service.get_all_unit_events()
+
+@router.get("/my", response_model=List[UnitEventResponseByUnitId], dependencies=[Depends(require_staff)])
+async def Lấy_danh_sách_sự_kiện_đẩy_xuống_đơn_vị_của_tôi(
+    current_user: TokenData = Depends(require_staff),
+    service: UnitEventService = Depends(get_unit_event_service),
+) -> List[UnitEventResponseByUnitId]:
+    """
+    Lấy danh sách sự kiện đẩy xuống đơn vị của tôi
+    
+    Quyền xem: Quản lý đơn vị
+    """
+    return await service.get_unit_events_by_unit_id(current_user.sub)
+
 
 @router.get("/{event_id}", response_model=UnitEventResponse, dependencies=[Depends(require_manager)])
 async def Lấy_một_sự_kiện_đẩy_xuống_đơn_vị_theo_id(
