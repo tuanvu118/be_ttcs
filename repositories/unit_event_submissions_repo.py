@@ -23,3 +23,10 @@ class UnitEventSubmissionsRepo:
             UnitEventSubmission.unitEventId == unit_event_id,
             UnitEventSubmission.unitId == unit_id
         )
+
+    async def get_all_by_unit_event_id(
+        self, unit_event_id: PydanticObjectId
+    ) -> List[UnitEventSubmission]:
+        return await UnitEventSubmission.find(
+            UnitEventSubmission.unitEventId == unit_event_id
+        ).to_list()

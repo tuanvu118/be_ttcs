@@ -2,13 +2,16 @@ from fastapi import APIRouter
 from schemas.unit_event_submissions import (
     UnitEventSubmissionResponse,
     UnitEventSubmissionUpdate,
+    UnitEventSubmissionStatusUpdate,
     UnitEventSubmissionMemberCreate,
+    UnitEventSubmissionMemberUpdate,
     UnitEventSubmissionMemberResponse,
+    UnitEventSubmissionWithUnitResponse,
 )
 from typing import List
 from beanie import PydanticObjectId
 from schemas.auth import TokenData
-from security import require_staff
+from security import require_manager, require_staff
 from fastapi import Depends, Header, status
 from schemas.unit_event_submissions import UnitEventSubmissionCreate
 from services.unit_event_submissions_service import UnitEventSubmissionsService
@@ -49,6 +52,19 @@ async def Lấy_phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông_theo_sự_ki
     )
 
 
+@router.get("/HTTT/all", response_model=List[UnitEventSubmissionWithUnitResponse])
+async def Lấy_tất_cả_phản_hồi_HTTT_theo_sự_kiện_đẩy_xuống_đơn_vị(
+    unit_event_id: PydanticObjectId,
+    current_user: TokenData = Depends(require_manager),
+    service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
+) -> List[UnitEventSubmissionWithUnitResponse]:
+    """
+    Lấy tất cả phản hồi HTTT theo unit_event_id.
+    Quyền: ADMIN hoặc MANAGER.
+    """
+    return await service.get_all_httt_submissions_by_unit_event_id(unit_event_id)
+
+
 @router.put("/HTTT", response_model=UnitEventSubmissionResponse)
 async def Sửa_phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông(
     unit_event_id: PydanticObjectId,
@@ -68,6 +84,19 @@ async def Sửa_phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông(
     Chỉ có thể sửa khi ở trạng thái PENDING hoặc REJECTED, sau khi sửa sẽ tự động chuyển sang trạng thái PENDING
     """
     return await service.update_unit_event_submission(unit_event_id, x_unit_id, data)
+
+
+@router.post("/status", response_model=UnitEventSubmissionResponse)
+async def Duyệt_hoặc_từ_chối_phản_hồi_sự_kiện(
+    data: UnitEventSubmissionStatusUpdate,
+    current_user: TokenData = Depends(require_manager),
+    service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
+) -> UnitEventSubmissionResponse:
+    """
+    Cập nhật trạng thái phản hồi sự kiện (PENDING/APPROVED/REJECTED).
+    Quyền: ADMIN hoặc MANAGER.
+    """
+    return await service.update_submission_status(data)
 
 ########################################################################################
 #Phản hồi sự kiện có danh sách thành viên
@@ -99,3 +128,17 @@ async def Lấy_phản_hồi_HTSK_theo_sự_kiện_id(
     Lấy phản hồi HTSK theo sự kiện id
     """
     return await service.get_unit_event_submissions_HTSK_by_unit_event_id(unit_event_id, x_unit_id)
+
+
+@router.put("/HTSK", response_model=UnitEventSubmissionMemberResponse)
+async def Sửa_phản_hồi_HTSK(
+    unit_event_id: PydanticObjectId,
+    data: UnitEventSubmissionMemberUpdate,
+    x_unit_id: str = Header(..., alias="X-Unit-Id"),
+    current_user: TokenData = Depends(require_staff),
+    service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
+) -> UnitEventSubmissionMemberResponse:
+    """
+    Sửa phản hồi HTSK theo unit_event_id và X-Unit-Id.
+    """
+    return await service.update_unit_event_submission_member(unit_event_id, x_unit_id, data)

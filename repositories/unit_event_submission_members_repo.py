@@ -17,3 +17,10 @@ class UnitEventSubmissionMembersRepo:
 
     async def get_all_by_unit_event_submission_id(self, unit_event_submission_id: PydanticObjectId) -> List[UnitEventSubmissionMember]:
         return await UnitEventSubmissionMember.find(UnitEventSubmissionMember.unitEventSubmissionId == unit_event_submission_id).to_list()
+
+    async def delete_all_by_unit_event_submission_id(
+        self, unit_event_submission_id: PydanticObjectId
+    ) -> None:
+        members = await self.get_all_by_unit_event_submission_id(unit_event_submission_id)
+        for member in members:
+            await member.delete()
