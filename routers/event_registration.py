@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path, status, Header
 from beanie import PydanticObjectId
 
 from schemas.auth import TokenData
@@ -16,17 +16,28 @@ from schemas.event_registration import (
 router = APIRouter(prefix="/api/events", tags=["Event Registration"])
 
 @router.post(
-    "/{event_id}/register",
+    "/{event_id}/register_public_event",
     response_model=EventRegistrationResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def register_event(
+async def register_public_event(
     event_id: PydanticObjectId = Path(...),
     current_user: TokenData = Depends(require_user),
 ):
-    return await EventRegistrationService.register(
+    return await EventRegistrationService.register_public_event(
         event_id=event_id,
         user_id=PydanticObjectId(current_user.sub)
+    )
+
+async def register_unit_event(
+    event_id: PydanticObjectId = Path(...),
+    current_user: TokenData = Depends(require_user),
+    x_unit_id: PydanticObjectId = Header(..., alias="X-Unit-Id"),
+):
+    return await EventRegistrationService.register_unit_event(
+        event_id=event_id,
+        user_id=PydanticObjectId(current_user.sub),
+        unit_id=x_unit_id
     )
 
 

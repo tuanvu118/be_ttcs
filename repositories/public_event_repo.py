@@ -48,6 +48,7 @@ class PublicEventRepository:
     async def get_valid_events(now: datetime):
         return await PublicEvent.find({
             "$or": [
+                {"registration_start": {"$gt": now}},
                 {
                     "registration_start": {"$lte": now},
                     "registration_end": {"$gte": now},
@@ -57,4 +58,4 @@ class PublicEventRepository:
                     "event_end": {"$gte": now},
                 }
             ]
-        }).to_list()
+        }).sort("event_start").to_list()

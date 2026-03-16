@@ -5,8 +5,12 @@ from fastapi import HTTPException, status
 
 
 class ErrorCode(int, Enum):
+
+
     USER_NOT_FOUND = 10
+    USER_NOT_IN_UNIT = 11
     UNIT_NOT_FOUND = 20
+    UNIT_NOT_ALLOWED = 21
     INVALID_IMAGE_TYPE = 30
 
     INVALID_CREDENTIALS = 40
@@ -121,6 +125,14 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.UNIT_EVENT_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
         "message": "Sự kiện đẩy xuống đơn vị không tồn tại",
+    },
+    ErrorCode.UNIT_NOT_ALLOWED: {
+        "status": status.HTTP_403_FORBIDDEN,
+        "message": "Bạn kh thuộc đơn vị được giao",
+    },
+    ErrorCode.USER_NOT_IN_UNIT: {
+        "status": status.HTTP_403_FORBIDDEN,
+        "message": "Bạn phải thành viên của đơn vị được giao",
     },
 }
 

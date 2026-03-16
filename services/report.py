@@ -6,6 +6,7 @@ from exceptions import ErrorCode, app_exception
 from models.report import InternalEvent
 from repositories.public_event_repo import PublicEventRepository
 from repositories.report_repo import ReportRepository
+from repositories.semester_repo import SemesterRepo
 from schemas.auth import TokenData
 from schemas.public_event import PublicEventSummary
 from schemas.report import (
@@ -47,6 +48,7 @@ class ReportService:
                 "unit_id": unit_id,
                 "month": data.month,
                 "year": data.year,
+                "semester_id" : (await SemesterRepo().get_active()).id,
                 "public_events": [],
                 "internal_events": [],
             }
@@ -56,6 +58,7 @@ class ReportService:
             id=report.id,
             unit_id=report.unit_id,
             month=report.month,
+            semester_id=report.semester_id,
             year=report.year,
         )
 
@@ -88,6 +91,7 @@ class ReportService:
         return ReportSummary(
             id=report.id,
             unit_id=report.unit_id,
+            semester_id=report.semester_id,
             month=report.month,
             year=report.year,
         )
@@ -103,6 +107,7 @@ class ReportService:
                 id=report.id,
                 unit_id=report.unit_id,
                 month=report.month,
+                semester_id=report.semester_id,
                 year=report.year,
             )
             for report in reports
@@ -116,6 +121,7 @@ class ReportService:
             ReportSummary(
                 id=report.id,
                 unit_id=report.unit_id,
+                semester_id=report.semester_id,
                 month=report.month,
                 year=report.year,
             )

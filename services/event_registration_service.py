@@ -5,18 +5,20 @@ from beanie import PydanticObjectId
 from exceptions import ErrorCode, app_exception
 from repositories.event_registration_repo import EventRegistrationRepository
 from repositories.public_event_repo import PublicEventRepository
+from repositories.unit_event_repo import UnitEventRepo
 from repositories.user_repo import UserRepo
+from repositories.user_role_repo import UserRoleRepo
 from schemas.event_registration import (
     EventRegistrationResponse,
     EventRegistrationUserResponse,
     MyEventDetailResponse,
-    MyEventRegistrationResponse,
+    MyEventRegistrationResponse, UnitEventRegistrationResponse,
 )
 
 
 class EventRegistrationService:
     @staticmethod
-    async def register(
+    async def register_public_event(
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
     ) -> EventRegistrationResponse:
@@ -39,6 +41,50 @@ class EventRegistrationService:
         )
 
         return EventRegistrationResponse.model_validate(registration)
+
+    @staticmethod
+    async def register_unit_event(
+            event_id: PydanticObjectId,
+            user_id: PydanticObjectId,
+            unit_id: PydanticObjectId,
+    ) -> UnitEventRegistrationResponse:
+
+        event = await UnitEventRepo().get_by_id(event_id)
+        if not event:
+            app_exception(ErrorCode.EVENT_NOT_FOUND)
+
+        user = await UserRepo().get_by_id(user_id)
+        if not user:
+            app_exception(ErrorCode.USER_NOT_FOUND)
+
+
+        if unit_id not in event.units:
+            app_exception(ErrorCode.UNIT_NOT_ALLOWED)
+
+        roles = await UserRoleRepo().list_active_by_user_and_unit(user_id, unit_id)
+        if not roles:
+            app_exception(ErrorCode.USER_NOT_IN_UNIT)
+
+        existed = await EventRegistrationRepository.get_by_event_and_user(
+            event_id, user_id
+        )
+        if existed:
+            app_exception(ErrorCode.ALREADY_REGISTERED)
+
+        registration = await EventRegistrationRepository.create(
+            {
+                "event_id": event_id,
+                "user_id": user_id,
+                "registered_at": datetime.now(timezone.utc),
+            }
+        )
+        return UnitEventRegistrationResponse(
+            id=registration.id,
+            event_id=registration.event_id,
+            user_id=registration.user_id,
+            unit_id=unit_id,
+            registered_at=registration.registered_at,
+        )
 
     @staticmethod
     async def cancel(

@@ -10,15 +10,17 @@ class PublicEvent(Document):
     title: str
     description: str
     image_url: Optional[str]=None
-    point: int = 0
+    point: float = 0
     registration_start: datetime
     registration_end: datetime
     event_start: datetime
     event_end: datetime
     auto_add_report: bool = False
+    semester_id: PydanticObjectId
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+
 
     class Settings:
         name = "public_events"

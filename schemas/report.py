@@ -54,6 +54,7 @@ class ReportUpdate(BaseModel):
 
 class ReportSummary(ReportBase):
     unit_id: PydanticObjectId
+    semester_id: PydanticObjectId
     id: PydanticObjectId
 
 

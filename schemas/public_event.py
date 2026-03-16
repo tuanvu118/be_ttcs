@@ -9,8 +9,7 @@ class PublicEventBase(BaseModel):
     title: str
     description: str
     image_url: Optional[str] = None
-    point: int = 0
-
+    point: float = 0
     registration_start: datetime
     registration_end: datetime
     event_start: datetime
@@ -25,8 +24,7 @@ class PublicEventUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     image_url: Optional[str] = None
-    point: Optional[int] = None
-
+    point: Optional[float] = None
     registration_start: Optional[datetime] = None
     registration_end: Optional[datetime] = None
     event_start: Optional[datetime] = None
@@ -36,6 +34,7 @@ class PublicEventUpdate(BaseModel):
 
 class PublicEventRead(PublicEventBase):
     id: PydanticObjectId
+    semester_id: PydanticObjectId
     created_at: datetime
 
 class PublicEventSummary(BaseModel):
