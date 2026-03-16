@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from beanie import PydanticObjectId
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -62,3 +62,9 @@ class UserCreate(UserBase):
         if len(value) < 6:
             raise ValueError("Mat khau phai >= 6 ky tu")
         return value
+
+class ListMsv(BaseModel):
+    list_msv: List[str]
+
+class ListUserId(BaseModel):
+    list_user_id: List[PydanticObjectId]

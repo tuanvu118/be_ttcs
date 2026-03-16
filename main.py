@@ -12,6 +12,7 @@ from routers.semester import router as semester_router
 from routers.unit import router as unit_router
 from routers.unit_event import router as unit_event_router
 from routers.users import router as users_router
+from routers.unit_event_submissions import router as unit_event_submissions_router
 
 app = FastAPI()
 
@@ -32,6 +33,7 @@ app.include_router(public_event_router)
 app.include_router(report_router)
 app.include_router(event_registration_router)
 app.include_router(unit_event_router)
+app.include_router(unit_event_submissions_router)
 
 
 @app.get("/")

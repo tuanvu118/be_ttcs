@@ -23,6 +23,7 @@ class UnitEvent(Document):
     type: UnitEventEnum
     created_at: datetime = Field(default_factory=datetime.now)
     created_by: PydanticObjectId
+    deleted_at: Optional[datetime] = None
 
     class Settings:
         name = "unit_events"
