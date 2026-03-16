@@ -15,8 +15,6 @@ class PublicEventBase(BaseModel):
     event_start: datetime
     event_end: datetime
 
-    auto_add_report: bool = False
-
 class PublicEventCreate(PublicEventBase):
     pass
 

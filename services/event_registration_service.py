@@ -8,6 +8,7 @@ from repositories.public_event_repo import PublicEventRepository
 from repositories.unit_event_repo import UnitEventRepo
 from repositories.user_repo import UserRepo
 from repositories.user_role_repo import UserRoleRepo
+from repositories.unit_event_assigned_units_repo import UnitEventAssignedUnitsRepo
 from schemas.event_registration import (
     EventRegistrationResponse,
     EventRegistrationUserResponse,
@@ -57,8 +58,11 @@ class EventRegistrationService:
         if not user:
             app_exception(ErrorCode.USER_NOT_FOUND)
 
+        units = await UnitEventAssignedUnitsRepo().list_by_event_id(event_id)
 
-        if unit_id not in event.units:
+        unit_ids = [u.unitId for u in units]
+
+        if unit_id not in unit_ids:
             app_exception(ErrorCode.UNIT_NOT_ALLOWED)
 
         roles = await UserRoleRepo().list_active_by_user_and_unit(user_id, unit_id)

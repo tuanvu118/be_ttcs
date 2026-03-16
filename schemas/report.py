@@ -45,13 +45,6 @@ class ReportBase(BaseModel):
     month: int
     year: int
 
-class ReportCreate(ReportBase):
-    pass
-
-class ReportUpdate(BaseModel):
-    month: Optional[int] = None
-    year: Optional[int] = None
-
 class ReportSummary(ReportBase):
     unit_id: PydanticObjectId
     semester_id: PydanticObjectId

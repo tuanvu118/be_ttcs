@@ -1,3 +1,4 @@
+from datetime import timezone, datetime
 from typing import List
 
 from beanie import PydanticObjectId
@@ -7,6 +8,7 @@ from models.report import InternalEvent
 from repositories.public_event_repo import PublicEventRepository
 from repositories.report_repo import ReportRepository
 from repositories.semester_repo import SemesterRepo
+from repositories.unit_repo import UnitRepo
 from schemas.auth import TokenData
 from schemas.public_event import PublicEventSummary
 from schemas.report import (
@@ -14,10 +16,8 @@ from schemas.report import (
     InternalEventRead,
     InternalEventUpdate,
     InternalSummary,
-    ReportCreate,
     ReportDetail,
     ReportSummary,
-    ReportUpdate,
 )
 
 
@@ -30,71 +30,35 @@ class ReportService:
         return report
 
     @staticmethod
-    async def create_report(
-        unit_id: PydanticObjectId,
-        data: ReportCreate,
-    ) -> ReportSummary:
-        existing = await ReportRepository.get_by_unique(
-            unit_id=unit_id,
-            month=data.month,
-            year=data.year,
-        )
+    async def auto_create_monthly_reports():
+        semester = await SemesterRepo().get_active()
+        if not semester:
+            return
 
-        if existing:
-            app_exception(ErrorCode.REPORT_ALREADY_EXISTS)
+        now = datetime.now(timezone.utc)
+        month = now.month
+        year = now.year
 
-        report = await ReportRepository.create(
-            {
-                "unit_id": unit_id,
-                "month": data.month,
-                "year": data.year,
-                "semester_id" : (await SemesterRepo().get_active()).id,
-                "public_events": [],
-                "internal_events": [],
-            }
-        )
+        units = await UnitRepo().list_all()
 
-        return ReportSummary(
-            id=report.id,
-            unit_id=report.unit_id,
-            month=report.month,
-            semester_id=report.semester_id,
-            year=report.year,
-        )
+        for unit in units:
+            existing = await ReportRepository.get_by_unique(
+                unit_id=unit.id,
+                month=month,
+                year=year,
+            )
 
-    @staticmethod
-    async def update_report(
-        report_id: PydanticObjectId,
-        data: ReportUpdate,
-    ) -> ReportSummary:
-        report = await ReportService._get_report_or_404(report_id)
-
-        update_data = data.model_dump(exclude_unset=True)
-
-        new_month = update_data.get("month", report.month)
-        new_year = update_data.get("year", report.year)
-
-        existing = await ReportRepository.get_by_unique(
-            unit_id=report.unit_id,
-            month=new_month,
-            year=new_year,
-        )
-
-        if existing and existing.id != report.id:
-            app_exception(ErrorCode.REPORT_ALREADY_EXISTS)
-
-        for field, value in update_data.items():
-            setattr(report, field, value)
-
-        await ReportRepository.save(report)
-
-        return ReportSummary(
-            id=report.id,
-            unit_id=report.unit_id,
-            semester_id=report.semester_id,
-            month=report.month,
-            year=report.year,
-        )
+            if not existing:
+                await ReportRepository.create(
+                    {
+                        "unit_id": unit.id,
+                        "month": month,
+                        "year": year,
+                        "semester_id": semester.id,
+                        "public_event_ids": [],
+                        "internal_events": [],
+                    }
+                )
 
     @staticmethod
     async def get_reports_by_unit(

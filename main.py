@@ -13,6 +13,7 @@ from routers.unit import router as unit_router
 from routers.unit_event import router as unit_event_router
 from routers.users import router as users_router
 from routers.unit_event_submissions import router as unit_event_submissions_router
+from scheduler.monthly_report import scheduler
 
 app = FastAPI()
 
@@ -22,7 +23,7 @@ async def on_startup():
     await init_db()
     init_cloudinary()
     await seed_roles()
-
+    scheduler.start()
 
 app.include_router(auth_router)
 app.include_router(rbac_router)

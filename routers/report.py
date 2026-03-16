@@ -8,10 +8,8 @@ from schemas.report import (
     InternalEventCreate,
     InternalEventRead,
     InternalEventUpdate,
-    ReportCreate,
     ReportDetail,
     ReportSummary,
-    ReportUpdate,
 )
 from security import get_current_user, require_manager, require_staff
 from services.report import ReportService
@@ -63,39 +61,6 @@ async def get_report_detail(
         report_id=report_id,
         current_user=current_user,
     )
-
-
-@router.post(
-    "/",
-    response_model=ReportSummary,
-    status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_staff)],
-)
-async def create_report(
-    data: ReportCreate,
-    x_unit_id: PydanticObjectId = Header(..., alias="X-Unit-Id"),
-):
-    return await ReportService.create_report(
-        unit_id=x_unit_id,
-        data=data,
-    )
-
-
-@router.put(
-    "/{report_id}",
-    response_model=ReportSummary,
-    status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_staff)],
-)
-async def update_report(
-    report_id: PydanticObjectId,
-    data: ReportUpdate,
-):
-    return await ReportService.update_report(
-        report_id,
-        data,
-    )
-
 
 @router.post(
     "/{report_id}/internal-events",

@@ -15,7 +15,6 @@ class PublicEvent(Document):
     registration_end: datetime
     event_start: datetime
     event_end: datetime
-    auto_add_report: bool = False
     semester_id: PydanticObjectId
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)

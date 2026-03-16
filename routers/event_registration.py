@@ -9,7 +9,7 @@ from services.event_registration_service import EventRegistrationService
 from schemas.event_registration import (
     EventRegistrationResponse,
     EventRegistrationUserResponse,
-    MyEventRegistrationResponse, MyEventDetailResponse,
+    MyEventRegistrationResponse, MyEventDetailResponse, UnitEventRegistrationResponse,
 )
 
 
@@ -29,6 +29,11 @@ async def register_public_event(
         user_id=PydanticObjectId(current_user.sub)
     )
 
+@router.post(
+    "/{event_id}/register_unit_event",
+    response_model=UnitEventRegistrationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def register_unit_event(
     event_id: PydanticObjectId = Path(...),
     current_user: TokenData = Depends(require_user),

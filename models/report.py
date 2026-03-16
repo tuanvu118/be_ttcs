@@ -19,7 +19,7 @@ class Report(Document):
     unit_id: PydanticObjectId
     month: int
     year: int
-    semester: PydanticObjectId
+    semester_id: PydanticObjectId
 
     public_event_ids: List[PydanticObjectId] = Field(default_factory=list)
     internal_events: List[InternalEvent] = Field(default_factory=list)
