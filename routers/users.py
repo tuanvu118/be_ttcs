@@ -48,7 +48,7 @@ async def read_current_user(current_user: TokenData = Depends(require_user)):
 
 
 @router.post("/list-users-by-msv")
-async def Lấy_danh_sách_sinh_viên_theo_msv(
+async def get_users_by_msv(
     data: ListMsv,
     current_user: TokenData = Depends(require_staff),
     service: UserService = Depends(get_user_service),
@@ -56,7 +56,7 @@ async def Lấy_danh_sách_sinh_viên_theo_msv(
     return await service.get_users_by_msv(data.list_msv)
 
 @router.post("/list-users-by-id")
-async def Lấy_danh_sách_sinh_viên_theo_id(
+async def get_users_by_id(
     data: ListUserId,
     current_user: TokenData = Depends(require_staff),
     service: UserService = Depends(get_user_service),

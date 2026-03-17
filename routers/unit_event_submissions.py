@@ -27,25 +27,25 @@ def get_unit_event_submission_service() -> UnitEventSubmissionsService:
     )
 
 @router.post("/HTTT", response_model=UnitEventSubmissionResponse, status_code=status.HTTP_201_CREATED)
-async def Phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông(
+async def submit_unit_event_support_communication(
     data: UnitEventSubmissionCreate,
     current_user: TokenData = Depends(require_staff),
     service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
 ) -> UnitEventSubmissionResponse:
     """
-    Phản hồi sự kiện Hỗ trợ Truyền Thông
+    Phản hồi sự kiện Hỗ trợ Truyền Thông cho đơn vị mình
     """
     return await service.create_unit_event_submission(data, current_user.sub)
 
 @router.get("/HTTT", response_model=UnitEventSubmissionResponse)
-async def Lấy_phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông_theo_sự_kiện_id(
+async def get_unit_event_support_communication_by_unit_event_id(
     unit_event_id: PydanticObjectId,
     x_unit_id: str = Header(..., alias="X-Unit-Id"),
     current_user: TokenData = Depends(require_staff),
     service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
 ) -> UnitEventSubmissionResponse:
     """
-    Lấy phản hồi sự kiện Hỗ trợ Truyền Thông theo sự kiện id
+    Lấy phản hồi sự kiện Hỗ trợ Truyền Thông theo sự kiện id của đơn vị mình
     """
     return await service.get_unit_event_submissions_by_unit_event_id(
         unit_event_id, x_unit_id
@@ -53,7 +53,7 @@ async def Lấy_phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông_theo_sự_ki
 
 
 @router.get("/HTTT/all", response_model=List[UnitEventSubmissionWithUnitResponse])
-async def Lấy_tất_cả_phản_hồi_HTTT_theo_sự_kiện_đẩy_xuống_đơn_vị(
+async def get_all_unit_event_support_communication_by_unit_event_id(
     unit_event_id: PydanticObjectId,
     current_user: TokenData = Depends(require_manager),
     service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
@@ -66,7 +66,7 @@ async def Lấy_tất_cả_phản_hồi_HTTT_theo_sự_kiện_đẩy_xuống_đ�
 
 
 @router.put("/HTTT", response_model=UnitEventSubmissionResponse)
-async def Sửa_phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông(
+async def update_unit_event_support_communication(
     unit_event_id: PydanticObjectId,
     data: UnitEventSubmissionUpdate,
     x_unit_id: str = Header(..., alias="X-Unit-Id"),
@@ -87,7 +87,7 @@ async def Sửa_phản_hồi_sự_kiện_Hỗ_trợ_Truyền_Thông(
 
 
 @router.post("/status", response_model=UnitEventSubmissionResponse)
-async def Duyệt_hoặc_từ_chối_phản_hồi_sự_kiện(
+async def update_unit_event_submission_status(
     data: UnitEventSubmissionStatusUpdate,
     current_user: TokenData = Depends(require_manager),
     service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
@@ -102,7 +102,7 @@ async def Duyệt_hoặc_từ_chối_phản_hồi_sự_kiện(
 #Phản hồi sự kiện có danh sách thành viên
 ########################################################################################
 @router.post("/HTSK", response_model=UnitEventSubmissionMemberResponse)
-async def Tạo_phản_hồi_HTSK(
+async def create_unit_event_submission_member(
     data: UnitEventSubmissionMemberCreate,
     x_unit_id: str = Header(..., alias="X-Unit-Id"),
     current_user: TokenData = Depends(require_staff),
@@ -118,20 +118,20 @@ async def Tạo_phản_hồi_HTSK(
     return await service.create_unit_event_submission_member(data, x_unit_id)
 
 @router.get("/HTSK", response_model=UnitEventSubmissionMemberResponse)
-async def Lấy_phản_hồi_HTSK_theo_sự_kiện_id(
+async def get_unit_event_submission_member_by_unit_event_id(
     unit_event_id: PydanticObjectId,
     x_unit_id: str = Header(..., alias="X-Unit-Id"),
     current_user: TokenData = Depends(require_staff),
     service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
 ) -> UnitEventSubmissionMemberResponse:
     """
-    Lấy phản hồi HTSK theo sự kiện id
+    Lấy phản hồi HTSK theo sự kiện id của đơn vị mình
     """
     return await service.get_unit_event_submissions_HTSK_by_unit_event_id(unit_event_id, x_unit_id)
 
 
 @router.put("/HTSK", response_model=UnitEventSubmissionMemberResponse)
-async def Sửa_phản_hồi_HTSK(
+async def update_unit_event_submission_member(
     unit_event_id: PydanticObjectId,
     data: UnitEventSubmissionMemberUpdate,
     x_unit_id: str = Header(..., alias="X-Unit-Id"),
@@ -139,6 +139,6 @@ async def Sửa_phản_hồi_HTSK(
     service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
 ) -> UnitEventSubmissionMemberResponse:
     """
-    Sửa phản hồi HTSK theo unit_event_id và X-Unit-Id.
+    Sửa phản hồi HTSK theo unit_event_id và X-Unit-Id của đơn vị mình.
     """
     return await service.update_unit_event_submission_member(unit_event_id, x_unit_id, data)
