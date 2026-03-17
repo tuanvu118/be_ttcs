@@ -18,7 +18,7 @@ from services.unit_event_submissions_service import UnitEventSubmissionsService
 from repositories.unit_event_submissions_repo import UnitEventSubmissionsRepo
 from repositories.unit_event_submission_members_repo import UnitEventSubmissionMembersRepo
 
-router = APIRouter(prefix="/unit-event-submissions", tags=["Phản hồi Sự kiện"])
+router = APIRouter(prefix="/unit-event-submissions", tags=["Unit Event Submissions"])
 
 def get_unit_event_submission_service() -> UnitEventSubmissionsService:
     return UnitEventSubmissionsService(
