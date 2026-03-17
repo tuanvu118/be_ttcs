@@ -5,7 +5,7 @@ from beanie import PydanticObjectId
 from exceptions import ErrorCode, app_exception
 from schemas.public_event import PublicEventCreate, PublicEventUpdate
 from repositories.public_event_repo import PublicEventRepository
-
+from repositories.semester_repo import SemesterRepo
 
 class PublicEventService:
     @staticmethod
@@ -36,7 +36,12 @@ class PublicEventService:
 
         payload = data.model_dump()
         payload["created_at"] = datetime.now(timezone.utc)
+        semester = await SemesterRepo().get_active()
 
+        if not semester:
+            raise ValueError("No active semester")
+
+        payload["semester_id"] = semester.id
         return await PublicEventRepository.create(payload)
 
     @staticmethod

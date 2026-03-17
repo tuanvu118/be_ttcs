@@ -12,6 +12,14 @@ class EventRegistrationResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class UnitEventRegistrationResponse(BaseModel):
+    id: PydanticObjectId
+    event_id: PydanticObjectId
+    user_id: PydanticObjectId
+    unit_id: PydanticObjectId
+    registered_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 class EventRegistrationUserResponse(BaseModel):
     user_id: PydanticObjectId
