@@ -29,12 +29,17 @@ class ErrorCode(int, Enum):
     INVALID_POINT_VALUE = 100
     INVALID_UNIT_EVENT_TYPE_VALUE = 101
 
-    UNIT_EVENT_NOT_FOUND = 110
-
     SEMESTER_NOT_FOUND = 110
     ACTIVE_SEMESTER_NOT_FOUND = 111
     INVALID_SEMESTER_TIME = 112
+    INVALID_ID_FORMAT = 113
 
+    UNIT_EVENT_NOT_FOUND = 120
+    INVALID_UNIT_EVENT_TYPE = 121
+    UNIT_EVENT_SUBMISSION_ALREADY_EXISTS = 122
+    UNIT_EVENT_SUBMISSION_NOT_FOUND = 123
+    UNIT_EVENT_SUBMISSION_ALREADY_APPROVED = 124
+    LIST_USER_ID_IS_REQUIRED = 125
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
@@ -117,10 +122,30 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Thoi gian semester khong hop le",
     },
+    ErrorCode.INVALID_ID_FORMAT: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "ID không đúng định dạng ObjectId",
+    },
 
     ErrorCode.UNIT_EVENT_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
         "message": "Sự kiện đẩy xuống đơn vị không tồn tại",
+    },
+    ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_EXISTS: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Đơn vị của bạn đã phản hồi sự kiện này rồi",
+    },
+    ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND: {
+        "status": status.HTTP_404_NOT_FOUND,
+        "message": "Đơn vị của bạn chưa phản hồi sự kiện này",
+    },
+    ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_APPROVED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Phản hồi đã được duyệt, bạn chỉ có thể sửa khi ở trạng thái PENDING hoặc REJECTED",
+    },
+    ErrorCode.LIST_USER_ID_IS_REQUIRED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Danh sách thành viên không được để trống",
     },
 }
 

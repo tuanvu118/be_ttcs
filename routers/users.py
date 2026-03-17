@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 
 from repositories.user_repo import UserRepo
 from schemas.auth import TokenData
-from schemas.users import UserCreate, UserResponse
-from security import require_user
+from schemas.users import ListMsv, ListUserId, UserCreate, UserRead, UserResponse
+from security import require_staff, require_user
 from services.user_service import UserService
+
+from typing import List
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -43,3 +45,20 @@ async def create_user(
 @router.get("/me")
 async def read_current_user(current_user: TokenData = Depends(require_user)):
     return current_user
+
+
+@router.post("/list-users-by-msv")
+async def Lấy_danh_sách_sinh_viên_theo_msv(
+    data: ListMsv,
+    current_user: TokenData = Depends(require_staff),
+    service: UserService = Depends(get_user_service),
+) -> List[UserRead]:
+    return await service.get_users_by_msv(data.list_msv)
+
+@router.post("/list-users-by-id")
+async def Lấy_danh_sách_sinh_viên_theo_id(
+    data: ListUserId,
+    current_user: TokenData = Depends(require_staff),
+    service: UserService = Depends(get_user_service),
+) -> List[UserRead]:
+    return await service.get_users_by_id(data.list_user_id)
