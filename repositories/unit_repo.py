@@ -13,6 +13,9 @@ class UnitRepo:
     async def get_by_id(self, unit_id: PydanticObjectId) -> Optional[Unit]:
         return await Unit.get(unit_id)
 
+    async def get_by_name(self, name: str) -> Optional[Unit]:
+        return await Unit.find_one(Unit.name == name)
+
     async def list_all(self) -> List[Unit]:
         return await Unit.find_all().to_list()
 

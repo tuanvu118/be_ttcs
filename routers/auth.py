@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from exceptions import ErrorCode, app_exception
 from repositories.role_repo import RoleRepo
+from repositories.semester_repo import SemesterRepo
 from repositories.user_repo import UserRepo
 from repositories.user_role_repo import UserRoleRepo
 from schemas.auth import Token
@@ -21,7 +22,7 @@ def get_user_service() -> UserService:
 
 
 def get_rbac_service() -> RBACService:
-    return RBACService(UserRepo(), RoleRepo(), UserRoleRepo())
+    return RBACService(UserRepo(), RoleRepo(), UserRoleRepo(), SemesterRepo())
 
 
 @router.post("/login", response_model=Token)

@@ -4,10 +4,14 @@ from beanie import PydanticObjectId
 from beanie.operators import In
 from fastapi import HTTPException, status
 
+from exceptions import ErrorCode, app_exception
 from models.roles import Role, RoleCode
+from models.user_unit import UserUnit
 from models.users_roles import UserRole
 from repositories.role_repo import RoleRepo
+from repositories.semester_repo import SemesterRepo
 from repositories.user_repo import UserRepo
+from repositories.user_unit_repo import UserUnitRepo
 from repositories.user_role_repo import UserRoleRepo
 
 ROLE_ADMIN = RoleCode.ADMIN
@@ -22,15 +26,50 @@ class RBACService:
         user_repo: UserRepo,
         role_repo: RoleRepo,
         user_role_repo: UserRoleRepo,
+        semester_repo: SemesterRepo | None = None,
+        user_unit_repo: UserUnitRepo | None = None,
     ) -> None:
         self.user_repo = user_repo
         self.role_repo = role_repo
         self.user_role_repo = user_role_repo
+        self.semester_repo = semester_repo or SemesterRepo()
+        self.user_unit_repo = user_unit_repo or UserUnitRepo()
+
+    async def _ensure_user_unit_membership(
+        self,
+        user_id: PydanticObjectId,
+        unit_id: PydanticObjectId,
+        semester_id: PydanticObjectId,
+        added_by: PydanticObjectId,
+    ) -> None:
+        existing_membership = await self.user_unit_repo.get_active(
+            user_id=user_id,
+            unit_id=unit_id,
+            semester_id=semester_id,
+        )
+        if existing_membership:
+            return
+
+        await self.user_unit_repo.create(
+            UserUnit(
+                user_id=user_id,
+                unit_id=unit_id,
+                semester_id=semester_id,
+                added_by=added_by,
+            )
+        )
 
     async def build_unit_role_claims_for_user(
         self, user_id: PydanticObjectId
     ) -> List[Dict]:
-        user_roles = await self.user_role_repo.list_active_by_user(user_id)
+        active_semester = await self.semester_repo.get_active()
+        if not active_semester:
+            return []
+
+        user_roles = await self.user_role_repo.list_active_by_user(
+            user_id,
+            active_semester.id,
+        )
         if not user_roles:
             return []
 
@@ -55,8 +94,9 @@ class RBACService:
         self,
         actor_id: PydanticObjectId,
         target_user_id: PydanticObjectId,
-        role_code: str,
+        role_id: PydanticObjectId,
         unit_id: PydanticObjectId,
+        semester_id: PydanticObjectId | None = None,
     ) -> UserRole:
         actor = await self.user_repo.get_by_id(actor_id)
         target_user = await self.user_repo.get_by_id(target_user_id)
@@ -66,17 +106,39 @@ class RBACService:
                 detail="User not found",
             )
 
-        role = await self.role_repo.get_by_code(role_code)
+        role = await self.role_repo.get_by_id(role_id)
         if not role:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Role not found",
             )
 
+        if semester_id is None:
+            active_semester = await self.semester_repo.get_active()
+            if not active_semester:
+                app_exception(ErrorCode.ACTIVE_SEMESTER_NOT_FOUND)
+            semester_id = active_semester.id
+
+        existed = await self.user_role_repo.get_active_by_user_role_unit_semester(
+            user_id=target_user.id,
+            role_id=role.id,
+            unit_id=unit_id,
+            semester_id=semester_id,
+        )
+        await self._ensure_user_unit_membership(
+            user_id=target_user.id,
+            unit_id=unit_id,
+            semester_id=semester_id,
+            added_by=actor_id,
+        )
+        if existed:
+            return existed
+
         user_role = UserRole(
             user_id=target_user.id,
             role_id=role.id,
             unit_id=unit_id,
+            semester_id=semester_id,
             is_active=True,
         )
         return await self.user_role_repo.create(user_role)

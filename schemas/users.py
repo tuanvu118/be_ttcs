@@ -32,7 +32,7 @@ class UserRead(UserBase):
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
-    password_hash: Optional[str] = None
+    password: Optional[str] = None
     student_id: Optional[str] = None
     class_name: Optional[str] = None
     course_code: Optional[str] = None
@@ -47,6 +47,15 @@ class UserUpdate(BaseModel):
         if not re.match(email_regex, value):
             raise ValueError("Email khong hop le")
         return value.strip()
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: Optional[str]):
+        if value is None:
+            return value
+        if len(value) < 6:
+            raise ValueError("Mat khau phai >= 6 ky tu")
+        return value
 
 
 class UserResponse(UserBase):

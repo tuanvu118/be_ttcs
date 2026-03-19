@@ -5,9 +5,10 @@ from beanie import PydanticObjectId
 from exceptions import ErrorCode, app_exception
 from repositories.event_registration_repo import EventRegistrationRepository
 from repositories.public_event_repo import PublicEventRepository
+from repositories.semester_repo import SemesterRepo
 from repositories.unit_event_repo import UnitEventRepo
+from repositories.user_unit_repo import UserUnitRepo
 from repositories.user_repo import UserRepo
-from repositories.user_role_repo import UserRoleRepo
 from repositories.unit_event_assigned_units_repo import UnitEventAssignedUnitsRepo
 from schemas.event_registration import (
     EventRegistrationResponse,
@@ -65,8 +66,16 @@ class EventRegistrationService:
         if unit_id not in unit_ids:
             app_exception(ErrorCode.UNIT_NOT_ALLOWED)
 
-        roles = await UserRoleRepo().list_active_by_user_and_unit(user_id, unit_id)
-        if not roles:
+        active_semester = await SemesterRepo().get_active()
+        if not active_semester:
+            app_exception(ErrorCode.ACTIVE_SEMESTER_NOT_FOUND)
+
+        membership = await UserUnitRepo().get_active(
+            user_id,
+            unit_id,
+            active_semester.id,
+        )
+        if not membership:
             app_exception(ErrorCode.USER_NOT_IN_UNIT)
 
         existed = await EventRegistrationRepository.get_by_event_and_user(

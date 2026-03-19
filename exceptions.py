@@ -9,6 +9,7 @@ class ErrorCode(int, Enum):
 
     USER_NOT_FOUND = 10
     USER_NOT_IN_UNIT = 11
+    USER_ALREADY_IN_UNIT = 12
     UNIT_NOT_FOUND = 20
     UNIT_NOT_ALLOWED = 21
     INVALID_IMAGE_TYPE = 30
@@ -53,6 +54,10 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.UNIT_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
         "message": "Unit khong ton tai",
+    },
+    ErrorCode.USER_ALREADY_IN_UNIT: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "User da la thanh vien cua unit trong semester nay",
     },
     ErrorCode.INVALID_IMAGE_TYPE: {
         "status": status.HTTP_400_BAD_REQUEST,

@@ -11,12 +11,12 @@ class UnitBase(BaseModel):
 
 
 class UnitCreate(UnitBase):
-    pass
+    name: str
+    type: Optional[str] = None
 
 
 class UnitUpdate(BaseModel):
     name: Optional[str] = None
-    logo: Optional[str] = None
     type: Optional[str] = None
 
 

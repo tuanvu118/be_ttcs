@@ -1,14 +1,16 @@
 from datetime import datetime
+from typing import List
 
+from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 
 from repositories.user_repo import UserRepo
 from schemas.auth import TokenData
-from schemas.users import ListMsv, ListUserId, UserCreate, UserRead, UserResponse
+from schemas.users import ListMsv, ListUserId, UserCreate, UserRead, UserResponse, UserUpdate
 from security import require_staff, require_user
 from services.user_service import UserService
-
-from typing import List
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -29,17 +31,51 @@ async def create_user(
     date_of_birth: datetime = Form(None),
     service: UserService = Depends(get_user_service),
 ):
-    payload = UserCreate(
-        full_name=full_name,
-        email=email,
-        password=password,
-        student_id=student_id,
-        class_name=class_name,
-        course_code=course_code,
-        avatar_url=None,
-        date_of_birth=date_of_birth,
-    )
+    try:
+        payload = UserCreate(
+            full_name=full_name,
+            email=email,
+            password=password,
+            student_id=student_id,
+            class_name=class_name,
+            course_code=course_code,
+            avatar_url=None,
+            date_of_birth=date_of_birth,
+        )
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+
     return await service.create_user(payload, avatar)
+
+
+@router.put("/{user_id}", response_model=UserRead, status_code=status.HTTP_200_OK)
+async def update_user(
+    user_id: PydanticObjectId,
+    full_name: str | None = Form(None),
+    email: str | None = Form(None),
+    password: str | None = Form(None),
+    student_id: str | None = Form(None),
+    class_name: str | None = Form(None),
+    course_code: str | None = Form(None),
+    avatar: UploadFile | None = File(None),
+    date_of_birth: datetime | None = Form(None),
+    current_user: TokenData = Depends(require_user),
+    service: UserService = Depends(get_user_service),
+) -> UserRead:
+    try:
+        payload = UserUpdate(
+            full_name=full_name,
+            email=email,
+            password=password,
+            student_id=student_id,
+            class_name=class_name,
+            course_code=course_code,
+            date_of_birth=date_of_birth,
+        )
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+
+    return await service.update_user(user_id, payload, avatar, current_user)
 
 
 @router.get("/me")

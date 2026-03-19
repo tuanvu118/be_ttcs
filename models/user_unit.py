@@ -9,15 +9,14 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
-class UserRole(Document):
+class UserUnit(Document):
     user_id: PydanticObjectId
-    role_id: PydanticObjectId
     unit_id: PydanticObjectId
     semester_id: PydanticObjectId
-
     is_active: bool = True
-    deleted_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=utcnow)
+    joined_at: datetime = Field(default_factory=utcnow)
+    left_at: Optional[datetime] = None
+    added_by: Optional[PydanticObjectId] = None
 
     class Settings:
-        name = "user_roles"
+        name = "user_units"

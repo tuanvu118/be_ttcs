@@ -19,9 +19,6 @@ class UserRepo:
     async def get_by_student_id(self, student_id: str) -> Optional[User]:
         return await User.find_one(User.student_id == student_id)
 
-    async def get_by_ids(self, user_ids: List[PydanticObjectId]) -> List[User]:
-        return await User.find(In(User.id, user_ids)).to_list()
-
     async def get_list(self, skip: int = 0, limit: int = 20) -> Tuple[List[User], int]:
         total = await User.find().count()
         items = await User.find().sort([("_id", -1)]).skip(skip).limit(limit).to_list()

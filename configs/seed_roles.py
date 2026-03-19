@@ -1,6 +1,7 @@
 from passlib.context import CryptContext
 
 from models.roles import Role, RoleCode
+from models.semester import Semester
 from models.unit import Unit
 from models.users import User
 from models.users_roles import UserRole
@@ -44,12 +45,14 @@ async def seed_roles():
         default_unit = await default_unit.insert()
 
     admin_role = await Role.find_one(Role.code == RoleCode.ADMIN)
+    active_semester = await Semester.find_one(Semester.is_active == True)
 
-    if admin_role:
+    if admin_role and active_semester:
         exists_user_role = await UserRole.find_one(
             (UserRole.user_id == admin_user.id),
             (UserRole.role_id == admin_role.id),
             (UserRole.unit_id == default_unit.id),
+            (UserRole.semester_id == active_semester.id),
             (UserRole.is_active == True),
         )
 
@@ -58,5 +61,6 @@ async def seed_roles():
                 user_id=admin_user.id,
                 role_id=admin_role.id,
                 unit_id=default_unit.id,
+                semester_id=active_semester.id,
                 is_active=True,
             ).insert()

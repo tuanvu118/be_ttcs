@@ -12,6 +12,7 @@ from models.semester import Semester
 from models.unit import Unit
 from models.unit_event import UnitEvent
 from models.unit_event_assigned_units import UnitEventAssignedUnits
+from models.user_unit import UserUnit
 from models.users import User
 from models.users_roles import UserRole
 from models.unit_event_submissions import UnitEventSubmission
@@ -31,6 +32,7 @@ async def init_db():
             User,
             Role,
             UserRole,
+            UserUnit,
             Unit,
             Semester,
             PublicEvent,

@@ -8,6 +8,7 @@ from beanie import PydanticObjectId
 from typing import List
 from exceptions import ErrorCode, app_exception
 from repositories.unit_event_assigned_units_repo import UnitEventAssignedUnitsRepo
+from repositories.semester_repo import SemesterRepo
 from repositories.unit_repo import UnitRepo
 from repositories.user_role_repo import UserRoleRepo
 from schemas.unit import UnitBase
@@ -122,7 +123,12 @@ class UnitEventService:
 
     async def get_unit_events_by_unit_id(self, user_id: PydanticObjectId | str) -> List[UnitEventResponseByUnitId]:
         parsed_user_id = self._parse_object_id(user_id, "user_id")
-        user_roles = await self.user_role_repo.list_active_by_user(parsed_user_id)
+        active_semester = await SemesterRepo().get_active()
+        semester_id = active_semester.id if active_semester else None
+        user_roles = await self.user_role_repo.list_active_by_user(
+            parsed_user_id,
+            semester_id,
+        )
         if not user_roles:
             app_exception(
                 ErrorCode.UNIT_NOT_FOUND,
