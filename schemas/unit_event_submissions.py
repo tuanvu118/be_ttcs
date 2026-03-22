@@ -37,7 +37,7 @@ class UnitEventSubmissionMemberCreate(BaseModel):
     unitEventId: PydanticObjectId
     unitId: PydanticObjectId
     content: str
-    list_user_id: List[PydanticObjectId] | None = None
+    list_MSV: List[str] | None = None
 
 
 class UnitEventSubmissionMemberUpdate(BaseModel):

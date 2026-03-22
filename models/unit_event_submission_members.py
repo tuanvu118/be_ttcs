@@ -2,7 +2,7 @@ from beanie import Document, PydanticObjectId
 
 class UnitEventSubmissionMember(Document):
   unitEventSubmissionId: PydanticObjectId
-  userId: PydanticObjectId
+  studentId: str
   checkIn: bool = False
 
   class Settings:

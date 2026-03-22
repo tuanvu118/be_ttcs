@@ -180,7 +180,7 @@ class UnitEventSubmissionsService:
         existing_submission = await self.repo.get_by_unit_event_id_and_unit_id(unit_event_id, unit_id)
         if existing_submission:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_EXISTS)
-        if data.list_user_id is None:
+        if data.list_MSV is None:
             app_exception(ErrorCode.LIST_USER_ID_IS_REQUIRED)
         unit_event_submission = UnitEventSubmission(
             unitEventId=unit_event_id,
@@ -191,10 +191,10 @@ class UnitEventSubmissionsService:
         )
         saved = await self.repo.create(unit_event_submission)
 
-        for user_id in data.list_user_id:
+        for student_id in data.list_MSV:
             unit_event_submission_member = UnitEventSubmissionMember(
                 unitEventSubmissionId=saved.id,
-                userId=user_id,
+                studentId=student_id,
                 checkIn=False,
             )
             await self.unit_event_submission_members_repo.create(unit_event_submission_member)
