@@ -42,13 +42,26 @@ class UnitEventSubmissionsService:
                 extra_detail=f"{field_name} không đúng định dạng",
             )
 
+    def _ensure_unit_assigned_to_event(
+        self, unit_event: UnitEvent, unit_id: PydanticObjectId
+    ) -> None:
+        """Kiểm tra đơn vị có trong listUnitId của sự kiện."""
+        list_unit_id = unit_event.listUnitId or []
+        if unit_id not in list_unit_id:
+            app_exception(ErrorCode.UNIT_NOT_ASSIGNED_TO_EVENT)
+
     async def _build_submission_member_response(
         self, submission: UnitEventSubmission
     ) -> UnitEventSubmissionMemberResponse:
         members = await self.unit_event_submission_members_repo.get_all_by_unit_event_submission_id(
             submission.id
         )
-        list_user_id = [member.userId for member in members]
+        list_user_id = []
+        for member in members:
+            if member.userId is not None:
+                list_user_id.append(member.userId)
+            elif member.studentId is not None:
+                list_user_id.append(member.studentId)
         return UnitEventSubmissionMemberResponse(
             unitEventId=submission.unitEventId,
             unitId=submission.unitId,
@@ -66,12 +79,14 @@ class UnitEventSubmissionsService:
             app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
         if unit_event.type != UnitEventEnum.HTTT:
             app_exception(ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE)
-        existing_submission = await self.repo.get_by_unit_event_id_and_unit_id(unit_event_id, data.unitId)
+        unit_id = self._parse_object_id(data.unitId, "unitId")
+        self._ensure_unit_assigned_to_event(unit_event, unit_id)
+        existing_submission = await self.repo.get_by_unit_event_id_and_unit_id(unit_event_id, unit_id)
         if existing_submission:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_EXISTS)
         unit_event_submission = UnitEventSubmission(
             unitEventId=unit_event_id,
-            unitId=self._parse_object_id(data.unitId, "unitId"),
+            unitId=unit_id,
             content=data.content,
             evidenceUrl=data.evidenceUrl,
             submittedAt=datetime.now(),
@@ -84,6 +99,10 @@ class UnitEventSubmissionsService:
     ) -> UnitEventSubmissionResponse:
         parsed_unit_event_id = self._parse_object_id(unit_event_id, "unit_event_id")
         parsed_unit_id = self._parse_object_id(unit_id, "unit_id")
+        unit_event = await UnitEvent.get(parsed_unit_event_id)
+        if not unit_event:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        self._ensure_unit_assigned_to_event(unit_event, parsed_unit_id)
         submission = await self.repo.get_by_unit_event_id_and_unit_id(
             parsed_unit_event_id, parsed_unit_id
         )
@@ -132,6 +151,10 @@ class UnitEventSubmissionsService:
     ) -> UnitEventSubmissionResponse:
         parsed_unit_event_id = self._parse_object_id(unit_event_id, "unit_event_id")
         parsed_unit_id = self._parse_object_id(unit_id, "unit_id")
+        unit_event = await UnitEvent.get(parsed_unit_event_id)
+        if not unit_event:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        self._ensure_unit_assigned_to_event(unit_event, parsed_unit_id)
 
         submission = await self.repo.get_by_unit_event_id_and_unit_id(
             parsed_unit_event_id, parsed_unit_id
@@ -177,6 +200,7 @@ class UnitEventSubmissionsService:
         if unit_event.type != UnitEventEnum.HTSK:
             app_exception(ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE)
         unit_id = self._parse_object_id(x_unit_id, "x_unit_id")
+        self._ensure_unit_assigned_to_event(unit_event, unit_id)
         existing_submission = await self.repo.get_by_unit_event_id_and_unit_id(unit_event_id, unit_id)
         if existing_submission:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_EXISTS)
@@ -186,7 +210,7 @@ class UnitEventSubmissionsService:
             unitEventId=unit_event_id,
             unitId=unit_id,
             content=data.content,
-            evidenceUrl=data.evidenceUrl,
+            evidenceUrl=getattr(data, "evidenceUrl", None) or "",
             submittedAt=datetime.now(),
         )
         saved = await self.repo.create(unit_event_submission)
@@ -207,6 +231,10 @@ class UnitEventSubmissionsService:
     ) -> UnitEventSubmissionMemberResponse:
         parsed_unit_event_id = self._parse_object_id(unit_event_id, "unit_event_id")
         parsed_unit_id = self._parse_object_id(x_unit_id, "x_unit_id")
+        unit_event = await UnitEvent.get(parsed_unit_event_id)
+        if not unit_event:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        self._ensure_unit_assigned_to_event(unit_event, parsed_unit_id)
         submission = await self.repo.get_by_unit_event_id_and_unit_id(parsed_unit_event_id, parsed_unit_id)
         if not submission:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
@@ -220,6 +248,10 @@ class UnitEventSubmissionsService:
     ) -> UnitEventSubmissionMemberResponse:
         parsed_unit_event_id = self._parse_object_id(unit_event_id, "unit_event_id")
         parsed_unit_id = self._parse_object_id(x_unit_id, "x_unit_id")
+        unit_event = await UnitEvent.get(parsed_unit_event_id)
+        if not unit_event:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        self._ensure_unit_assigned_to_event(unit_event, parsed_unit_id)
 
         submission = await self.repo.get_by_unit_event_id_and_unit_id(
             parsed_unit_event_id, parsed_unit_id

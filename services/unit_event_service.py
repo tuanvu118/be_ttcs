@@ -2,12 +2,10 @@ from repositories.unit_event_repo import UnitEventRepo
 from schemas.unit_event import UnitEventCreate, UnitEventResponse, UnitEventUpdate, UnitEventResponseByUnitId
 from schemas.response import BaseResponse
 from models.unit_event import UnitEvent, UnitEventEnum
-from models.unit_event_assigned_units import UnitEventAssignedUnits
 from datetime import datetime, timezone
 from beanie import PydanticObjectId
 from typing import List
 from exceptions import ErrorCode, app_exception
-from repositories.unit_event_assigned_units_repo import UnitEventAssignedUnitsRepo
 from repositories.unit_repo import UnitRepo
 from repositories.user_role_repo import UserRoleRepo
 from schemas.unit import UnitBase
@@ -16,14 +14,10 @@ class UnitEventService:
     def __init__(
         self,
         repo: UnitEventRepo,
-        unit_event_assigned_units_repo: UnitEventAssignedUnitsRepo | None = None,
         unit_repo: UnitRepo | None = None,
         user_role_repo: UserRoleRepo | None = None,
     ) -> None:
         self.repo = repo
-        self.unit_event_assigned_units_repo = (
-            unit_event_assigned_units_repo or UnitEventAssignedUnitsRepo()
-        )
         self.unit_repo = unit_repo or UnitRepo()
         self.user_role_repo = user_role_repo or UserRoleRepo()
 
@@ -50,8 +44,7 @@ class UnitEventService:
         return unique_unit_ids
 
     async def _build_event_response(self, event: UnitEvent) -> UnitEventResponse:
-        assigned_links = await self.unit_event_assigned_units_repo.list_by_event_id(event.id)
-        unit_ids = [item.unitId for item in assigned_links]
+        unit_ids = event.listUnitId or []
         units = await self.unit_repo.list_by_ids(unit_ids)
         unit_map = {str(unit.id): unit for unit in units}
         assigned_units = [
@@ -84,43 +77,38 @@ class UnitEventService:
             type=event.type,
             created_at=event.created_at,
         )
+
     async def create_unit_event(
-        self, 
+        self,
         payload: UnitEventCreate,
         current_user: str,
     ) -> UnitEventResponse:
-        if payload.point < 0 or payload.point > 10 :
+        if payload.point < 0 or payload.point > 10:
             app_exception(ErrorCode.INVALID_POINT_VALUE)
         if payload.type not in UnitEventEnum:
             app_exception(ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE)
 
-        unique_unit_ids = await self._ensure_units_exist(payload.assigned_units)
-            
+        unique_unit_ids = await self._ensure_units_exist(payload.listUnitId)
+
         unit_event = UnitEvent(
             title=payload.title,
             description=payload.description,
             point=payload.point,
             type=payload.type,
+            listUnitId=unique_unit_ids,
             created_at=datetime.now(timezone.utc),
             created_by=self._parse_object_id(current_user, "current_user_id"),
         )
         saved = await self.repo.create(unit_event)
-
-        for unit_id in unique_unit_ids:
-            await self.unit_event_assigned_units_repo.create(UnitEventAssignedUnits(
-                unitEventId=saved.id,
-                unitId=unit_id
-            ))
         return await self._build_event_response(saved)
-
-
 
     async def get_all_unit_events(self) -> List[UnitEventResponse]:
         events = await self.repo.get_all_active()
         return [await self._build_event_response(event) for event in events]
 
-
-    async def get_unit_events_by_unit_id(self, user_id: PydanticObjectId | str) -> List[UnitEventResponseByUnitId]:
+    async def get_unit_events_by_unit_id(
+        self, user_id: PydanticObjectId | str
+    ) -> List[UnitEventResponseByUnitId]:
         parsed_user_id = self._parse_object_id(user_id, "user_id")
         user_roles = await self.user_role_repo.list_active_by_user(parsed_user_id)
         if not user_roles:
@@ -130,17 +118,14 @@ class UnitEventService:
             )
 
         unit_ids = list(dict.fromkeys([ur.unit_id for ur in user_roles]))
-        assigned_links = []
-        for unit_id in unit_ids:
-            links = await self.unit_event_assigned_units_repo.list_by_unit_id(unit_id)
-            assigned_links.extend(links)
-
-        event_ids = list(dict.fromkeys([link.unitEventId for link in assigned_links]))
+        seen_event_ids: set[PydanticObjectId] = set()
         events: List[UnitEvent] = []
-        for event_id in event_ids:
-            event = await self.repo.get_by_id(event_id)
-            if event is not None:
-                events.append(event)
+        for unit_id in unit_ids:
+            unit_events = await self.repo.list_by_unit_id(unit_id)
+            for event in unit_events:
+                if event.id not in seen_event_ids:
+                    seen_event_ids.add(event.id)
+                    events.append(event)
 
         return [await self._build_event_response_by_unit_id(event) for event in events]
 
@@ -154,7 +139,9 @@ class UnitEventService:
             app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
         return await self._build_event_response(event)
 
-    async def update_unit_event(self, event_id: PydanticObjectId | str, data: UnitEventUpdate) -> BaseResponse:
+    async def update_unit_event(
+        self, event_id: PydanticObjectId | str, data: UnitEventUpdate
+    ) -> BaseResponse:
         parsed_event_id = self._parse_object_id(event_id, "event_id")
         try:
             event = await self.repo.get_by_id(parsed_event_id)
@@ -164,27 +151,22 @@ class UnitEventService:
             app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
 
         update_data = data.model_dump(exclude_unset=True)
-        assigned_units = update_data.pop("assigned_units", None)
+        list_unit_id = update_data.pop("listUnitId", None)
 
         for field, value in update_data.items():
             setattr(event, field, value)
 
-        await self.repo.update(event)
+        if list_unit_id is not None:
+            validated_unit_ids = await self._ensure_units_exist(list_unit_id)
+            event.listUnitId = validated_unit_ids
 
-        if assigned_units is not None:
-            validated_unit_ids = await self._ensure_units_exist(assigned_units)
-            await self.unit_event_assigned_units_repo.delete_by_event_id(event.id)
-            for unit_id in validated_unit_ids:
-                await self.unit_event_assigned_units_repo.create(
-                    UnitEventAssignedUnits(
-                        unitEventId=event.id,
-                        unitId=unit_id,
-                    )
-                )
+        await self.repo.update(event)
 
         return BaseResponse(message="Sự kiện đẩy xuống đơn vị đã được cập nhật thành công")
 
-    async def delete_unit_event(self, event_id: PydanticObjectId | str) -> BaseResponse:
+    async def delete_unit_event(
+        self, event_id: PydanticObjectId | str
+    ) -> BaseResponse:
         parsed_event_id = self._parse_object_id(event_id, "event_id")
         try:
             event = await self.repo.get_by_id(parsed_event_id)

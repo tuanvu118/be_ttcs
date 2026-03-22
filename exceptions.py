@@ -40,6 +40,7 @@ class ErrorCode(int, Enum):
     UNIT_EVENT_SUBMISSION_NOT_FOUND = 123
     UNIT_EVENT_SUBMISSION_ALREADY_APPROVED = 124
     LIST_USER_ID_IS_REQUIRED = 125
+    UNIT_NOT_ASSIGNED_TO_EVENT = 126
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
@@ -146,6 +147,10 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.LIST_USER_ID_IS_REQUIRED: {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Danh sách thành viên không được để trống",
+    },
+    ErrorCode.UNIT_NOT_ASSIGNED_TO_EVENT: {
+        "status": status.HTTP_403_FORBIDDEN,
+        "message": "Đơn vị của bạn không được giao sự kiện này",
     },
 }
 
