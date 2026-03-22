@@ -25,7 +25,7 @@ status_code=status.HTTP_201_CREATED,
 dependencies=[Depends(require_manager)]
 )
 
-async def tạo_sự_kiện_đẩy_xuống_đơn_vị(
+async def Create_Unit_Event(
     data: UnitEventCreate,
     current_user: TokenData = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
@@ -42,7 +42,7 @@ async def tạo_sự_kiện_đẩy_xuống_đơn_vị(
     return await service.create_unit_event(data, current_user.sub)
 
 @router.get("/all", response_model=List[UnitEventResponse], dependencies=[Depends(require_manager)])
-async def Lấy_danh_sách_tất_cả_sự_kiện_đẩy_xuống_đơn_vị(
+async def Get_All_Unit_Events(
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> List[UnitEventResponse]:
@@ -54,7 +54,7 @@ async def Lấy_danh_sách_tất_cả_sự_kiện_đẩy_xuống_đơn_vị(
     return await service.get_all_unit_events()
 
 @router.get("/my", response_model=List[UnitEventResponseByUnitId], dependencies=[Depends(require_staff)])
-async def Lấy_danh_sách_sự_kiện_đẩy_xuống_đơn_vị_của_tôi(
+async def Get_My_Unit_Events(
     current_user: TokenData = Depends(require_staff),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> List[UnitEventResponseByUnitId]:
@@ -67,7 +67,7 @@ async def Lấy_danh_sách_sự_kiện_đẩy_xuống_đơn_vị_của_tôi(
 
 
 @router.get("/{event_id}", response_model=UnitEventResponse, dependencies=[Depends(require_manager)])
-async def Lấy_một_sự_kiện_đẩy_xuống_đơn_vị_theo_id(
+async def Get_Unit_Event_By_Id(
     event_id: PydanticObjectId,
     _ = Depends(require_staff),
     service: UnitEventService = Depends(get_unit_event_service),
@@ -80,7 +80,7 @@ async def Lấy_một_sự_kiện_đẩy_xuống_đơn_vị_theo_id(
     return await service.get_unit_event_by_id(event_id)
 
 @router.put("/{event_id}", response_model=BaseResponse, dependencies=[Depends(require_manager)])
-async def Cập_nhat_sự_kiện_đẩy_xuống_đơn_vị(
+async def Update_Unit_Event(
     event_id: PydanticObjectId,
     data: UnitEventUpdate,
     _ = Depends(require_manager),
@@ -96,7 +96,7 @@ async def Cập_nhat_sự_kiện_đẩy_xuống_đơn_vị(
     return await service.update_unit_event(event_id, data)
 
 @router.delete("/{event_id}", response_model=BaseResponse, dependencies=[Depends(require_manager)])
-async def Xóa_sự_kiện_đẩy_xuống_đơn_vị(
+async def Delete_Unit_Event(
     event_id: PydanticObjectId,
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
