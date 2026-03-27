@@ -5,13 +5,14 @@ from typing import List, Optional
 from beanie import PydanticObjectId
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from schemas.auth import UnitRole
+
 
 class UserBase(BaseModel):
     full_name: str
     email: str
     student_id: str
     class_name: str
-    course_code: Optional[str] = None
     avatar_url: Optional[str] = None
     date_of_birth: Optional[datetime] = None
 
@@ -35,7 +36,6 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     student_id: Optional[str] = None
     class_name: Optional[str] = None
-    course_code: Optional[str] = None
     avatar_url: Optional[str] = None
     date_of_birth: Optional[datetime] = None
 
@@ -72,8 +72,14 @@ class UserCreate(UserBase):
             raise ValueError("Mat khau phai >= 6 ky tu")
         return value
 
-class ListMsv(BaseModel):
-    list_msv: List[str]
 
-class ListUserId(BaseModel):
-    list_user_id: List[PydanticObjectId]
+class UserProfileResponse(UserRead):
+    is_active: bool
+    roles: List[UnitRole]
+
+
+class UserListResponse(BaseModel):
+    items: List[UserRead]
+    total: int
+    skip: int
+    limit: int

@@ -24,6 +24,9 @@ class UserRepo:
         items = await User.find().sort([("_id", -1)]).skip(skip).limit(limit).to_list()
         return items, total
 
+    async def list_all(self) -> List[User]:
+        return await User.find().sort([("_id", -1)]).to_list()
+
     async def create(self, user: User) -> User:
         return await user.insert()
 

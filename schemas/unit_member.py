@@ -6,8 +6,7 @@ from pydantic import BaseModel
 
 
 class UnitMemberCreate(BaseModel):
-    user_id: PydanticObjectId
-    semester_id: Optional[PydanticObjectId] = None
+    student_id: str
 
 
 class UnitMemberRead(BaseModel):
@@ -20,3 +19,10 @@ class UnitMemberRead(BaseModel):
     unit_id: PydanticObjectId
     semester_id: PydanticObjectId
     joined_at: datetime
+
+
+class UnitMemberListResponse(BaseModel):
+    items: list[UnitMemberRead]
+    total: int
+    skip: int
+    limit: int

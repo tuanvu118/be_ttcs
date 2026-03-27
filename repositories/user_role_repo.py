@@ -6,6 +6,9 @@ from models.users_roles import UserRole
 
 
 class UserRoleRepo:
+    async def get_by_id(self, assignment_id: PydanticObjectId) -> UserRole | None:
+        return await UserRole.get(assignment_id)
+
     async def list_by_user(self, user_id: PydanticObjectId) -> List[UserRole]:
         return await UserRole.find(UserRole.user_id == user_id).to_list()
 

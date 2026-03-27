@@ -1,12 +1,12 @@
 from typing import List
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, Form, UploadFile, status
+from fastapi import APIRouter, Depends, Form, Query, UploadFile, status
 
 from repositories.unit_repo import UnitRepo
 from schemas.auth import TokenData
-from schemas.unit_member import UnitMemberCreate, UnitMemberRead
-from schemas.unit import UnitCreate, UnitRead, UnitUpdate
+from schemas.unit_member import UnitMemberCreate, UnitMemberListResponse, UnitMemberRead
+from schemas.unit import UnitCreate, UnitListResponse, UnitRead, UnitUpdate
 from security import require_admin, require_user
 from services.unit_service import UnitService
 
@@ -27,22 +27,33 @@ def get_unit_service() -> UnitService:
 async def create_unit(
     name: str = Form(...),
     type: str = Form(...),
+    introduction: str | None = Form(None),
     logo: UploadFile | None = None,
     service: UnitService = Depends(get_unit_service),
 ) -> UnitRead:
-    payload = UnitCreate(name=name, type=type)
+    payload = UnitCreate(name=name, type=type, introduction=introduction)
     return await service.create_unit(payload, logo)
 
 
 @router.get(
     "",
-    response_model=List[UnitRead],
+    response_model=UnitListResponse,
 )
 async def list_units(
-    current_user: TokenData = Depends(require_user),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    name: str | None = Query(None),
+    type: str | None = Query(None),
+    introduction: str | None = Query(None),
     service: UnitService = Depends(get_unit_service),
-) -> List[UnitRead]:
-    return await service.list_units()
+) -> UnitListResponse:
+    return await service.list_units(
+        skip=skip,
+        limit=limit,
+        name=name,
+        type=type,
+        introduction=introduction,
+    )
 
 
 @router.get(
@@ -51,7 +62,6 @@ async def list_units(
 )
 async def get_unit(
     unit_id: PydanticObjectId,
-    current_user: TokenData = Depends(require_user),
     service: UnitService = Depends(get_unit_service),
 ) -> UnitRead:
     return await service.get_unit(unit_id)
@@ -66,10 +76,11 @@ async def update_unit(
     unit_id: PydanticObjectId,
     name: str = Form(...),
     type: str = Form(...),
+    introduction: str | None = Form(None),
     logo: UploadFile | None = None,
     service: UnitService = Depends(get_unit_service),
 ) -> UnitRead:
-    payload = UnitUpdate(name=name, type=type)
+    payload = UnitUpdate(name=name, type=type, introduction=introduction)
     return await service.update_unit(unit_id, payload, logo)
 
 
@@ -106,18 +117,30 @@ async def add_unit_member(
 
 @router.get(
     "/{unit_id}/members",
-    response_model=List[UnitMemberRead],
+    response_model=UnitMemberListResponse,
 )
 async def list_unit_members(
     unit_id: PydanticObjectId,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    full_name: str | None = Query(None),
+    email: str | None = Query(None),
+    student_id: str | None = Query(None),
+    class_name: str | None = Query(None),
     semester_id: PydanticObjectId | None = None,
     current_user: TokenData = Depends(require_user),
     service: UnitService = Depends(get_unit_service),
-) -> List[UnitMemberRead]:
+) -> UnitMemberListResponse:
     return await service.list_members(
         unit_id=unit_id,
         current_user=current_user,
         semester_id=semester_id,
+        skip=skip,
+        limit=limit,
+        full_name=full_name,
+        email=email,
+        student_id=student_id,
+        class_name=class_name,
     )
 
 

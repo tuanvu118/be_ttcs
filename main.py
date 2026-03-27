@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from configs.cloudinary import init_cloudinary
 from configs.database import init_db
 from configs.seed_roles import seed_roles
+from middleware.cors import register_cors
 from routers.auth import router as auth_router
 from routers.event_registration import router as event_registration_router
 from routers.public_event import router as public_event_router
@@ -16,6 +17,7 @@ from routers.unit_event_submissions import router as unit_event_submissions_rout
 from scheduler.monthly_report import scheduler
 
 app = FastAPI()
+register_cors(app)
 
 
 @app.on_event("startup")

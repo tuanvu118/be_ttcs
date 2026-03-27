@@ -11,8 +11,8 @@ from repositories.unit_repo import UnitRepo
 from repositories.user_repo import UserRepo
 from repositories.user_unit_repo import UserUnitRepo
 from schemas.auth import TokenData
-from schemas.unit_member import UnitMemberCreate, UnitMemberRead
-from schemas.unit import UnitCreate, UnitRead, UnitUpdate
+from schemas.unit_member import UnitMemberCreate, UnitMemberListResponse, UnitMemberRead
+from schemas.unit import UnitCreate, UnitListResponse, UnitRead, UnitUpdate
 from services.cloudinary_service import upload_image
 
 
@@ -74,6 +74,16 @@ class UnitService:
             joined_at=membership.joined_at,
         )
 
+    @staticmethod
+    def _matches_text_filter(value: str | None, query: str | None) -> bool:
+        if not query:
+            return True
+        return query.lower() in (value or "").lower()
+
+    @staticmethod
+    def _paginate(items: List, skip: int, limit: int) -> List:
+        return items[skip : skip + limit]
+
     async def create_unit(
             self, 
             payload: UnitCreate,
@@ -84,6 +94,7 @@ class UnitService:
         unit = Unit(
             name=payload.name,
             logo=logo_url,
+            introduction=payload.introduction,
             type=payload.type,
         )
         saved = await self.repo.create(unit)
@@ -95,9 +106,30 @@ class UnitService:
             app_exception(ErrorCode.UNIT_NOT_FOUND)
         return UnitRead.model_validate(unit)
 
-    async def list_units(self) -> List[UnitRead]:
+    async def list_units(
+        self,
+        skip: int = 0,
+        limit: int = 20,
+        name: str | None = None,
+        type: str | None = None,
+        introduction: str | None = None,
+    ) -> UnitListResponse:
         items = await self.repo.list_all()
-        return [UnitRead.model_validate(unit) for unit in items]
+        filtered_units = [
+            unit
+            for unit in items
+            if self._matches_text_filter(unit.name, name)
+            and self._matches_text_filter(unit.type.value if unit.type else None, type)
+            and self._matches_text_filter(unit.introduction, introduction)
+        ]
+        total = len(filtered_units)
+        paginated_units = self._paginate(filtered_units, skip, limit)
+        return UnitListResponse(
+            items=[UnitRead.model_validate(unit) for unit in paginated_units],
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
 
     async def update_unit(
          self,
@@ -139,13 +171,13 @@ class UnitService:
         if not unit:
             app_exception(ErrorCode.UNIT_NOT_FOUND)
 
-        user = await self.user_repo.get_by_id(payload.user_id)
+        user = await self.user_repo.get_by_student_id(payload.student_id)
         if not user:
             app_exception(ErrorCode.USER_NOT_FOUND)
 
-        semester = await self._resolve_semester(payload.semester_id)
+        semester = await self._resolve_semester(None)
         existed = await self.user_unit_repo.get_active(
-            payload.user_id,
+            user.id,
             unit_id,
             semester.id,
         )
@@ -154,7 +186,7 @@ class UnitService:
 
         membership = await self.user_unit_repo.create(
             UserUnit(
-                user_id=payload.user_id,
+                user_id=user.id,
                 unit_id=unit_id,
                 semester_id=semester.id,
                 added_by=actor_id,
@@ -167,7 +199,13 @@ class UnitService:
         unit_id: PydanticObjectId,
         current_user: TokenData,
         semester_id: PydanticObjectId | None = None,
-    ) -> List[UnitMemberRead]:
+        skip: int = 0,
+        limit: int = 20,
+        full_name: str | None = None,
+        email: str | None = None,
+        student_id: str | None = None,
+        class_name: str | None = None,
+    ) -> UnitMemberListResponse:
         self._ensure_member_management_permission(current_user, unit_id)
 
         unit = await self.repo.get_by_id(unit_id)
@@ -186,8 +224,22 @@ class UnitService:
             if user is None:
                 continue
             result.append(self._build_member_response(user, membership))
-
-        return result
+        filtered_members = [
+            member
+            for member in result
+            if self._matches_text_filter(member.full_name, full_name)
+            and self._matches_text_filter(member.email, email)
+            and self._matches_text_filter(member.student_id, student_id)
+            and self._matches_text_filter(member.class_name, class_name)
+        ]
+        total = len(filtered_members)
+        paginated_members = self._paginate(filtered_members, skip, limit)
+        return UnitMemberListResponse(
+            items=paginated_members,
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
 
     async def remove_member(
         self,

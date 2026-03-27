@@ -29,7 +29,6 @@ async def seed_roles():
             password_hash=hashed_password,
             student_id="ADMIN",
             class_name="ADMIN",
-            course_code="SYSTEM",
             avatar_url=None,
             date_of_birth=None,
         )
