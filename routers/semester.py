@@ -1,11 +1,13 @@
 from typing import List
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, status
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query, status
 
 from repositories.semester_repo import SemesterRepo
 from schemas.auth import TokenData
-from schemas.semester import SemesterCreate, SemesterRead, SemesterUpdate
+from schemas.semester import SemesterCreate, SemesterListResponse, SemesterRead, SemesterUpdate
 from security import require_global_admin, require_user
 from services.semester_service import SemesterService
 
@@ -32,13 +34,32 @@ async def create_semester(
 
 @router.get(
     "",
-    response_model=List[SemesterRead],
+    response_model=SemesterListResponse,
 )
 async def list_semesters(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    name: str | None = Query(None),
+    academic_year: str | None = Query(None),
+    is_active: bool | None = Query(None),
+    start_date_from: datetime | None = Query(None),
+    start_date_to: datetime | None = Query(None),
+    end_date_from: datetime | None = Query(None),
+    end_date_to: datetime | None = Query(None),
     current_user: TokenData = Depends(require_user),
     service: SemesterService = Depends(get_semester_service),
-) -> List[SemesterRead]:
-    return await service.list_semesters()
+) -> SemesterListResponse:
+    return await service.list_semesters(
+        skip=skip,
+        limit=limit,
+        name=name,
+        academic_year=academic_year,
+        is_active=is_active,
+        start_date_from=start_date_from,
+        start_date_to=start_date_to,
+        end_date_from=end_date_from,
+        end_date_to=end_date_to,
+    )
 
 
 @router.get(

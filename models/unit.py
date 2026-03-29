@@ -13,6 +13,7 @@ class UnitType(str, Enum):
 class Unit(Document):
     name: str
     logo: Optional[str] = None
+    introduction: Optional[str] = None
     type: UnitType = UnitType.CLB
 
     class Settings:

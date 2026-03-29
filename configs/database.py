@@ -6,11 +6,13 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from models.event_registration import EventRegistration
 from models.public_event import PublicEvent
+from models.refresh_tokens import RefreshTokenSession
 from models.report import Report
 from models.roles import Role
 from models.semester import Semester
 from models.unit import Unit
 from models.unit_event import UnitEvent
+from models.user_unit import UserUnit
 from models.users import User
 from models.users_roles import UserRole
 from models.unit_event_submissions import UnitEventSubmission
@@ -30,8 +32,10 @@ async def init_db():
             User,
             Role,
             UserRole,
+            UserUnit,
             Unit,
             Semester,
+            RefreshTokenSession,
             PublicEvent,
             Report,
             EventRegistration,

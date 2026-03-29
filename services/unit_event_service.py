@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from beanie import PydanticObjectId
 from typing import List
 from exceptions import ErrorCode, app_exception
+from repositories.semester_repo import SemesterRepo
 from repositories.unit_repo import UnitRepo
 from repositories.user_role_repo import UserRoleRepo
 from services.semester_service import SemesterService
@@ -122,7 +123,7 @@ class UnitEventService:
         parsed_user_id = self._parse_object_id(user_id, "user_id")
         parsed_semester_id = self._parse_object_id(semester_id, "semesterId")
         await self.semester_service.get_semester_by_id(parsed_semester_id)
-
+        
         user_roles = await self.user_role_repo.list_active_by_user(parsed_user_id)
         if not user_roles:
             app_exception(
