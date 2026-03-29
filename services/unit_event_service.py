@@ -8,7 +8,9 @@ from typing import List
 from exceptions import ErrorCode, app_exception
 from repositories.unit_repo import UnitRepo
 from repositories.user_role_repo import UserRoleRepo
+from services.semester_service import SemesterService
 from schemas.unit import UnitBase
+from repositories.semester_repo import SemesterRepo
 
 class UnitEventService:
     def __init__(
@@ -20,6 +22,7 @@ class UnitEventService:
         self.repo = repo
         self.unit_repo = unit_repo or UnitRepo()
         self.user_role_repo = user_role_repo or UserRoleRepo()
+        self.semester_service = SemesterService(SemesterRepo())
 
     def _parse_object_id(self, value: PydanticObjectId | str, field_name: str) -> PydanticObjectId:
         try:
@@ -95,6 +98,7 @@ class UnitEventService:
             description=payload.description,
             point=payload.point,
             type=payload.type,
+            semesterId=await self.semester_service.get_current_semester().id,
             listUnitId=unique_unit_ids,
             created_at=datetime.now(timezone.utc),
             created_by=self._parse_object_id(current_user, "current_user_id"),
@@ -102,14 +106,23 @@ class UnitEventService:
         saved = await self.repo.create(unit_event)
         return await self._build_event_response(saved)
 
-    async def get_all_unit_events(self) -> List[UnitEventResponse]:
-        events = await self.repo.get_all_active()
+    async def get_all_unit_events_by_semester_id(
+        self, semester_id: PydanticObjectId | str
+    ) -> List[UnitEventResponse]:
+        parsed_semester_id = self._parse_object_id(semester_id, "semesterId")
+        await self.semester_service.get_semester_by_id(parsed_semester_id)
+        events = await self.repo.list_active_by_semester_id(parsed_semester_id)
         return [await self._build_event_response(event) for event in events]
 
     async def get_unit_events_by_unit_id(
-        self, user_id: PydanticObjectId | str
+        self,
+        user_id: PydanticObjectId | str,
+        semester_id: PydanticObjectId | str,
     ) -> List[UnitEventResponseByUnitId]:
         parsed_user_id = self._parse_object_id(user_id, "user_id")
+        parsed_semester_id = self._parse_object_id(semester_id, "semesterId")
+        await self.semester_service.get_semester_by_id(parsed_semester_id)
+
         user_roles = await self.user_role_repo.list_active_by_user(parsed_user_id)
         if not user_roles:
             app_exception(
@@ -121,7 +134,9 @@ class UnitEventService:
         seen_event_ids: set[PydanticObjectId] = set()
         events: List[UnitEvent] = []
         for unit_id in unit_ids:
-            unit_events = await self.repo.list_by_unit_id(unit_id)
+            unit_events = await self.repo.list_by_unit_id_and_semester_id(
+                unit_id, parsed_semester_id
+            )
             for event in unit_events:
                 if event.id not in seen_event_ids:
                     seen_event_ids.add(event.id)

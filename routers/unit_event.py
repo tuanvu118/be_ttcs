@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi import status
 from schemas.unit_event import (
     UnitEventCreate,
@@ -32,6 +32,8 @@ async def Create_Unit_Event(
 ) -> UnitEventResponse:
     """
     Tạo sự kiện đẩy xuống đơn vị (HTTT hoặc HTSK)
+    
+    Tự động lấy kì học đang Active để thêm vào semesterId của sự kiện khi tạo
 
     Điểm số từ 0.00 đến 10.00
 
@@ -42,28 +44,34 @@ async def Create_Unit_Event(
     return await service.create_unit_event(data, current_user.sub)
 
 @router.get("/all", response_model=List[UnitEventResponse], dependencies=[Depends(require_manager)])
-async def Get_All_Unit_Events(
+async def Get_All_Unit_Events_By_Semester(
+    semester_id: PydanticObjectId = Query(..., alias="semesterId"),
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> List[UnitEventResponse]:
     """
-    Lấy danh sách tất cả sự kiện đẩy xuống đơn vị (bao gồm cả HTTT và HTSK)
+    Lấy danh sách tất cả sự kiện đẩy xuống đơn vị (bao gồm cả HTTT và HTSK) theo kì học
     
+    Query: semesterId - id kỳ học cần lọc.
+
     Quyền xem: VPĐ hoặc ADMIN
     """
-    return await service.get_all_unit_events()
+    return await service.get_all_unit_events_by_semester_id(semester_id)
 
 @router.get("/my", response_model=List[UnitEventResponseByUnitId], dependencies=[Depends(require_staff)])
-async def Get_My_Unit_Events(
+async def Get_My_Unit_Events_By_Semester(
+    semester_id: PydanticObjectId = Query(..., alias="semesterId"),
     current_user: TokenData = Depends(require_staff),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> List[UnitEventResponseByUnitId]:
     """
-    Lấy danh sách sự kiện đẩy xuống đơn vị của tôi
-    
+    Lấy danh sách sự kiện đẩy xuống đơn vị của tôi theo kỳ học
+
+    Query: semesterId - id kỳ học cần lọc.
+
     Quyền xem: Quản lý đơn vị
     """
-    return await service.get_unit_events_by_unit_id(current_user.sub)
+    return await service.get_unit_events_by_unit_id(current_user.sub, semester_id)
 
 
 @router.get("/{event_id}", response_model=UnitEventResponse, dependencies=[Depends(require_manager)])

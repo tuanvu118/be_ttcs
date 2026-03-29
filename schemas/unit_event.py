@@ -21,6 +21,7 @@ class UnitEventResponse(BaseModel):
     description: Optional[str] = None
     point: Decimal = Field(default=Decimal("0"))
     type: UnitEventEnum
+    semesterId: PydanticObjectId
     created_at: datetime
     created_by: PydanticObjectId
     assigned_units: List[UnitBase]
@@ -33,6 +34,7 @@ class UnitEventResponseByUnitId(BaseModel):
     description: Optional[str] = None
     point: Decimal = Field(default=Decimal("0"))
     type: UnitEventEnum
+    semesterId: PydanticObjectId
     created_at: datetime
 
 class UnitEventUpdate(BaseModel):

@@ -10,11 +10,28 @@ class UnitEventRepo:
     async def get_all_active(self) -> List[UnitEvent]:
         return await UnitEvent.find(UnitEvent.deleted_at == None).to_list()
 
+    async def list_active_by_semester_id(
+        self, semester_id: PydanticObjectId
+    ) -> List[UnitEvent]:
+        return await UnitEvent.find(
+            UnitEvent.deleted_at == None,
+            UnitEvent.semesterId == semester_id,
+        ).to_list()
+
     async def list_by_unit_id(self, unit_id: PydanticObjectId) -> List[UnitEvent]:
         """Lấy danh sách unit_events có unit_id trong listUnitId."""
         return await UnitEvent.find(
             UnitEvent.deleted_at == None,
             UnitEvent.listUnitId == unit_id,
+        ).to_list()
+
+    async def list_by_unit_id_and_semester_id(
+        self, unit_id: PydanticObjectId, semester_id: PydanticObjectId
+    ) -> List[UnitEvent]:
+        return await UnitEvent.find(
+            UnitEvent.deleted_at == None,
+            UnitEvent.listUnitId == unit_id,
+            UnitEvent.semesterId == semester_id,
         ).to_list()
 
     async def get_all(self) -> List[UnitEvent]:

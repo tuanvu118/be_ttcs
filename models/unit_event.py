@@ -21,6 +21,7 @@ class UnitEvent(Document):
         le=Decimal("10"),
     )
     type: UnitEventEnum
+    semesterId: PydanticObjectId
     listUnitId: List[PydanticObjectId] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.now)
     created_by: PydanticObjectId

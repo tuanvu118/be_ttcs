@@ -37,6 +37,12 @@ class SemesterService:
             app_exception(ErrorCode.ACTIVE_SEMESTER_NOT_FOUND)
         return SemesterRead.model_validate(semester)
 
+    async def get_semester_by_id(self, semester_id: PydanticObjectId) -> SemesterRead:
+        semester = await self.repo.get_by_id(semester_id)
+        if not semester:
+            app_exception(ErrorCode.SEMESTER_NOT_FOUND)
+        return SemesterRead.model_validate(semester)
+
     async def update_semester(
         self,
         semester_id: PydanticObjectId,
