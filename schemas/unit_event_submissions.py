@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict
 from beanie import PydanticObjectId
 from datetime import datetime
 from models.unit_event_submissions import UnitEventSubmissionStatus
-from typing import List
+from typing import List, Union
 from schemas.unit import UnitBase
 
 
@@ -37,7 +37,7 @@ class UnitEventSubmissionMemberCreate(BaseModel):
     unitEventId: PydanticObjectId
     unitId: PydanticObjectId
     content: str
-    list_user_id: List[PydanticObjectId] | None = None
+    list_MSV: List[str] | None = None
 
 
 class UnitEventSubmissionMemberUpdate(BaseModel):
@@ -53,7 +53,7 @@ class UnitEventSubmissionMemberResponse(BaseModel):
     evidenceUrl: str
     status: UnitEventSubmissionStatus
     submittedAt: datetime
-    list_user_id: List[PydanticObjectId]
+    list_user_id: List[Union[PydanticObjectId, str]]
 
     model_config = ConfigDict(from_attributes=True)
 
