@@ -67,6 +67,7 @@ class UnitEventService:
             description=event.description,
             point=event.point,
             type=event.type,
+            semesterId=event.semesterId,
             created_at=event.created_at,
             created_by=event.created_by,
             assigned_units=assigned_units,
@@ -79,6 +80,7 @@ class UnitEventService:
             description=event.description,
             point=event.point,
             type=event.type,
+            semesterId=event.semesterId,
             created_at=event.created_at,
         )
 
@@ -99,7 +101,7 @@ class UnitEventService:
             description=payload.description,
             point=payload.point,
             type=payload.type,
-            semesterId=await self.semester_service.get_current_semester().id,
+            semesterId=(await self.semester_service.get_current_semester()).id,
             listUnitId=unique_unit_ids,
             created_at=datetime.now(timezone.utc),
             created_by=self._parse_object_id(current_user, "current_user_id"),
