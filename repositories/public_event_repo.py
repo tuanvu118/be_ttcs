@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from beanie import PydanticObjectId
 
@@ -19,7 +19,9 @@ class PublicEventRepository:
         return await PublicEvent.get(event_id)
 
     @staticmethod
-    async def get_all():
+    async def get_all(semester_id: Optional[PydanticObjectId] = None):
+        if semester_id:
+            return await PublicEvent.find({"semester_id": semester_id}).to_list()
         return await PublicEvent.find_all().to_list()
 
     @staticmethod
@@ -45,8 +47,8 @@ class PublicEventRepository:
         ).to_list()
 
     @staticmethod
-    async def get_valid_events(now: datetime):
-        return await PublicEvent.find({
+    async def get_valid_events(now: datetime, semester_id: Optional[PydanticObjectId] = None):
+        query = {
             "$or": [
                 {"registration_start": {"$gt": now}},
                 {
@@ -58,4 +60,8 @@ class PublicEventRepository:
                     "event_end": {"$gte": now},
                 }
             ]
-        }).sort("event_start").to_list()
+        }
+        if semester_id:
+            query["semester_id"] = semester_id
+            
+        return await PublicEvent.find(query).sort("event_start").to_list()

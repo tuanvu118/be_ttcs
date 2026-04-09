@@ -10,7 +10,6 @@ class ErrorCode(int, Enum):
     USER_NOT_FOUND = 10
     USER_NOT_IN_UNIT = 11
     USER_ALREADY_IN_UNIT = 12
-    STUDENT_ID_ALREADY_EXISTS = 13
     UNIT_NOT_FOUND = 20
     UNIT_NOT_ALLOWED = 21
     INVALID_IMAGE_TYPE = 30
@@ -25,6 +24,10 @@ class ErrorCode(int, Enum):
     INVALID_REGISTRATION_TIME = 71
     INVALID_EVENT_TIME = 72
     EVENT_MUST_START_AFTER_REGISTRATION = 73
+    INVALID_FORM_FIELD = 74
+    MISSING_REQUIRED_FIELD = 75
+    INVALID_OPTION = 76
+    REGISTRATION_CLOSED = 77
 
     REPORT_NOT_FOUND = 80
     REPORT_ALREADY_EXISTS = 81
@@ -59,10 +62,6 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_ALREADY_IN_UNIT: {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "User da la thanh vien cua unit trong semester nay",
-    },
-    ErrorCode.STUDENT_ID_ALREADY_EXISTS: {
-        "status": status.HTTP_400_BAD_REQUEST,
-        "message": "Ma sinh vien da ton tai",
     },
     ErrorCode.INVALID_IMAGE_TYPE: {
         "status": status.HTTP_400_BAD_REQUEST,
@@ -169,6 +168,23 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Danh sách thành viên không được để trống",
     },
+    ErrorCode.INVALID_FORM_FIELD: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Dữ liệu đăng ký kh hợp lệ",
+    },
+    ErrorCode.MISSING_REQUIRED_FIELD: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Dữ liệu bắt buộc",
+    },
+    ErrorCode.INVALID_OPTION: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Chưa chọn hoặc chọn không hợp lệ",
+    },
+    ErrorCode.REGISTRATION_CLOSED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Sự kiện đã đóng",
+    },
+
 }
 
 

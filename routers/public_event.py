@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends
@@ -21,16 +21,18 @@ async def create_event(
 
 @router.get("/", response_model=List[PublicEventRead])
 async def get_events(
+    semester_id: Optional[PydanticObjectId] = None,
     _=Depends(require_manager),
 ):
-    return await PublicEventService.get_events()
+    return await PublicEventService.get_events(semester_id=semester_id)
 
 
 @router.get("/valid", response_model=List[PublicEventRead])
 async def get_valid_events(
+    semester_id: Optional[PydanticObjectId] = None,
     _=Depends(require_user),
 ):
-    return await PublicEventService.get_valid_events()
+    return await PublicEventService.get_valid_events(semester_id=semester_id)
 
 
 @router.get("/{event_id}", response_model=PublicEventRead)
