@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from beanie import PydanticObjectId
+from fastapi import UploadFile
 
 from exceptions import ErrorCode, app_exception
 from schemas.public_event import PublicEventCreate, PublicEventUpdate
@@ -43,7 +44,7 @@ class PublicEventService:
                 if not field.options:
                     app_exception(ErrorCode.INVALID_FORM_FIELD)
     @staticmethod
-    async def create_event(data: PublicEventCreate):
+    async def create_event(data: PublicEventCreate, image: Optional[UploadFile] = None):
 
         PublicEventService._validate_time(
             data.registration_start,
@@ -55,13 +56,20 @@ class PublicEventService:
         # validate form
         PublicEventService._validate_form_fields(data.form_fields)
         payload = data.model_dump()
-        payload["created_at"] = datetime.now(timezone.utc)
-        semester = await SemesterRepo().get_active()
+        
+        if image:
+            from services.cloudinary_service import upload_image
+            image_url, _ = upload_image(image)
+            payload["image_url"] = image_url
+            
+        if payload.get("semester_id"):
+            payload["semester_id"] = payload["semester_id"]
+        else:
+            semester = await SemesterRepo().get_active()
+            if not semester:
+                raise ValueError("No active semester")
+            payload["semester_id"] = semester.id
 
-        if not semester:
-            raise ValueError("No active semester")
-
-        payload["semester_id"] = semester.id
         return await PublicEventRepository.create(payload)
 
     @staticmethod
@@ -76,13 +84,21 @@ class PublicEventService:
         return event
 
     @staticmethod
-    async def update_event(event_id: PydanticObjectId, data: PublicEventUpdate):
+    async def update_event(event_id: PydanticObjectId, data: PublicEventUpdate, image: Optional[UploadFile] = None):
 
         event = await PublicEventRepository.get_by_id(event_id)
         if not event:
             app_exception(ErrorCode.EVENT_NOT_FOUND)
 
         update_data = data.model_dump(exclude_unset=True)
+        # created_at should not be updated, but semester_id can be
+        if "created_at" in update_data:
+            del update_data["created_at"]
+
+        if image:
+            from services.cloudinary_service import upload_image
+            image_url = await upload_image(image)
+            update_data["image_url"] = image_url
 
         merged_data = {
             "registration_start": update_data.get(

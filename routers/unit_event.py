@@ -11,7 +11,7 @@ from security import require_manager, require_staff
 from services.unit_event_service import UnitEventService
 from repositories.unit_event_repo import UnitEventRepo
 from schemas.auth import TokenData
-from typing import List
+from typing import List, Optional
 from beanie import PydanticObjectId
 
 router = APIRouter(prefix="/unit-events", tags=["Unit Events"])
@@ -19,33 +19,48 @@ router = APIRouter(prefix="/unit-events", tags=["Unit Events"])
 def get_unit_event_service() -> UnitEventService:
     return UnitEventService(UnitEventRepo())
 
+import json
+from fastapi import Form, UploadFile, File
+
 @router.post("/", 
 response_model=UnitEventResponse,
 status_code=status.HTTP_201_CREATED,
 dependencies=[Depends(require_manager)]
 )
-
 async def Create_Unit_Event(
-    data: UnitEventCreate,
+    title: str = Form(...),
+    description: str = Form(None),
+    point: float = Form(0),
+    type: str = Form(...),
+    listUnitId: str = Form("[]"),
+    semester_id: Optional[str] = Form(None),
+    image: UploadFile = File(None),
     current_user: TokenData = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> UnitEventResponse:
     """
-    Tạo sự kiện đẩy xuống đơn vị (HTTT hoặc HTSK)
-    
-    Tự động lấy kì học đang Active để thêm vào semesterId của sự kiện khi tạo
-
-    Điểm số từ 0.00 đến 10.00
-
-    Loại sự kiện: HTTT hoặc HTSK
-
-    Quyền tạo: VPĐ hoặc ADMIN
+    Tạo sự kiện đẩy xuống đơn vị (HTTT hoặc HTSK) với sự hỗ trợ của Multipart/Form-data.
     """
-    return await service.create_unit_event(data, current_user.sub)
+    from schemas.unit_event import UnitEventCreate
+    from decimal import Decimal
+    
+    # Parse listUnitId từ JSON string
+    unit_ids = json.loads(listUnitId)
+    
+    data = UnitEventCreate(
+        title=title,
+        description=description,
+        point=Decimal(str(point)),
+        type=type,
+        listUnitId=unit_ids,
+        semesterId=PydanticObjectId(semester_id) if semester_id else None
+    )
+    
+    return await service.create_unit_event(data, current_user.sub, image)
 
 @router.get("/all", response_model=List[UnitEventResponse], dependencies=[Depends(require_manager)])
 async def Get_All_Unit_Events_By_Semester(
-    semester_id: PydanticObjectId = Query(..., alias="semesterId"),
+    semester_id: Optional[PydanticObjectId] = Query(None, alias="semesterId"),
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> List[UnitEventResponse]:
@@ -77,7 +92,6 @@ async def Get_My_Unit_Events_By_Semester(
 @router.get("/{event_id}", response_model=UnitEventResponse, dependencies=[Depends(require_manager)])
 async def Get_Unit_Event_By_Id(
     event_id: PydanticObjectId,
-    _ = Depends(require_staff),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> UnitEventResponse:
     """
@@ -90,18 +104,31 @@ async def Get_Unit_Event_By_Id(
 @router.put("/{event_id}", response_model=BaseResponse, dependencies=[Depends(require_manager)])
 async def Update_Unit_Event(
     event_id: PydanticObjectId,
-    data: UnitEventUpdate,
+    title: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    point: Optional[float] = Form(None),
+    listUnitId: Optional[str] = Form(None),
+    semester_id: Optional[str] = Form(None),
+    image: UploadFile = File(None),
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> BaseResponse:
-    """
-    Cập nhật sự kiện đẩy xuống đơn vị theo id
+    from decimal import Decimal
     
-    Quyền cập nhật: VPĐ hoặc ADMIN
+    update_data = {}
+    if title is not None: update_data["title"] = title
+    if description is not None: update_data["description"] = description
+    if point is not None: update_data["point"] = Decimal(str(point))
     
-    Không được sửa Type
-    """
-    return await service.update_unit_event(event_id, data)
+    if listUnitId:
+        update_data["listUnitId"] = json.loads(listUnitId)
+    
+    if semester_id:
+        update_data["semesterId"] = PydanticObjectId(semester_id)
+        
+    data = UnitEventUpdate(**update_data)
+    
+    return await service.update_unit_event(event_id, data, image)
 
 @router.delete("/{event_id}", response_model=BaseResponse, dependencies=[Depends(require_manager)])
 async def Delete_Unit_Event(

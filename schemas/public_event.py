@@ -29,10 +29,11 @@ class PublicEventBase(BaseModel):
 
 
 class PublicEventCreate(PublicEventBase):
-    pass
+    semester_id: Optional[PydanticObjectId] = None
 
 
 class PublicEventUpdate(BaseModel):
+    semester_id: Optional[PydanticObjectId] = None
     title: Optional[str] = None
     description: Optional[str] = None
     image_url: Optional[str] = None

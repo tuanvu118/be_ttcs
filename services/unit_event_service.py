@@ -1,17 +1,17 @@
+from fastapi import UploadFile
+from typing import List, Optional
 from repositories.unit_event_repo import UnitEventRepo
 from schemas.unit_event import UnitEventCreate, UnitEventResponse, UnitEventUpdate, UnitEventResponseByUnitId
 from schemas.response import BaseResponse
 from models.unit_event import UnitEvent, UnitEventEnum
 from datetime import datetime, timezone
 from beanie import PydanticObjectId
-from typing import List
 from exceptions import ErrorCode, app_exception
 from repositories.semester_repo import SemesterRepo
 from repositories.unit_repo import UnitRepo
 from repositories.user_role_repo import UserRoleRepo
 from services.semester_service import SemesterService
 from schemas.unit import UnitBase
-from repositories.semester_repo import SemesterRepo
 
 class UnitEventService:
     def __init__(
@@ -88,6 +88,7 @@ class UnitEventService:
         self,
         payload: UnitEventCreate,
         current_user: str,
+        image: Optional[UploadFile] = None,
     ) -> UnitEventResponse:
         if payload.point < 0 or payload.point > 10:
             app_exception(ErrorCode.INVALID_POINT_VALUE)
@@ -96,12 +97,18 @@ class UnitEventService:
 
         unique_unit_ids = await self._ensure_units_exist(payload.listUnitId)
 
+        image_url = None
+        if image:
+            from services.cloudinary_service import upload_image
+            image_url, _ = upload_image(image)
+
         unit_event = UnitEvent(
             title=payload.title,
             description=payload.description,
             point=payload.point,
             type=payload.type,
-            semesterId=(await self.semester_service.get_current_semester()).id,
+            image_url=image_url,
+            semesterId=payload.semesterId or (await self.semester_service.get_current_semester()).id,
             listUnitId=unique_unit_ids,
             created_at=datetime.now(timezone.utc),
             created_by=self._parse_object_id(current_user, "current_user_id"),
@@ -110,8 +117,12 @@ class UnitEventService:
         return await self._build_event_response(saved)
 
     async def get_all_unit_events_by_semester_id(
-        self, semester_id: PydanticObjectId | str
+        self, semester_id: Optional[PydanticObjectId | str] = None
     ) -> List[UnitEventResponse]:
+        if semester_id is None or semester_id == 'all':
+            events = await self.repo.get_all_active()
+            return [await self._build_event_response(event) for event in events]
+
         parsed_semester_id = self._parse_object_id(semester_id, "semesterId")
         await self.semester_service.get_semester_by_id(parsed_semester_id)
         events = await self.repo.list_active_by_semester_id(parsed_semester_id)
@@ -158,7 +169,10 @@ class UnitEventService:
         return await self._build_event_response(event)
 
     async def update_unit_event(
-        self, event_id: PydanticObjectId | str, data: UnitEventUpdate
+        self, 
+        event_id: PydanticObjectId | str, 
+        data: UnitEventUpdate,
+        image: Optional[UploadFile] = None
     ) -> BaseResponse:
         parsed_event_id = self._parse_object_id(event_id, "event_id")
         try:
@@ -169,6 +183,12 @@ class UnitEventService:
             app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
 
         update_data = data.model_dump(exclude_unset=True)
+        
+        if image:
+            from services.cloudinary_service import upload_image
+            image_url = await upload_image(image)
+            update_data["image_url"] = image_url
+
         list_unit_id = update_data.pop("listUnitId", None)
 
         for field, value in update_data.items():
