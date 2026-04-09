@@ -89,7 +89,6 @@ class UnitEventService:
         self,
         payload: UnitEventCreate,
         current_user: str,
-        image: Optional[UploadFile] = None,
     ) -> UnitEventResponse:
         if payload.point < 0 or payload.point > 10:
             app_exception(ErrorCode.INVALID_POINT_VALUE)
@@ -98,17 +97,12 @@ class UnitEventService:
 
         unique_unit_ids = await self._ensure_units_exist(payload.listUnitId)
 
-        image_url = None
-        if image:
-            from services.cloudinary_service import upload_image
-            image_url, _ = upload_image(image)
 
         unit_event = UnitEvent(
             title=payload.title,
             description=payload.description,
             point=payload.point,
             type=payload.type,
-            image_url=image_url,
             semesterId=payload.semesterId or (await self.semester_service.get_current_semester()).id,
             listUnitId=unique_unit_ids,
             created_at=datetime.now(timezone.utc),
@@ -173,7 +167,6 @@ class UnitEventService:
         self, 
         event_id: PydanticObjectId | str, 
         data: UnitEventUpdate,
-        image: Optional[UploadFile] = None
     ) -> BaseResponse:
         parsed_event_id = self._parse_object_id(event_id, "event_id")
         try:
@@ -184,11 +177,6 @@ class UnitEventService:
             app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
 
         update_data = data.model_dump(exclude_unset=True)
-        
-        if image:
-            from services.cloudinary_service import upload_image
-            image_url, _ = upload_image(image)
-            update_data["image_url"] = image_url
 
         list_unit_id = update_data.pop("listUnitId", None)
 

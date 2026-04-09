@@ -20,7 +20,7 @@ def get_unit_event_service() -> UnitEventService:
     return UnitEventService(UnitEventRepo())
 
 import json
-from fastapi import Form, UploadFile, File
+from fastapi import Form
 
 @router.post("/", 
 response_model=UnitEventResponse,
@@ -34,7 +34,6 @@ async def Create_Unit_Event(
     type: str = Form(...),
     listUnitId: str = Form("[]"),
     semester_id: Optional[str] = Form(None),
-    image: UploadFile = File(None),
     current_user: TokenData = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> UnitEventResponse:
@@ -56,7 +55,7 @@ async def Create_Unit_Event(
         semesterId=PydanticObjectId(semester_id) if semester_id else None
     )
     
-    return await service.create_unit_event(data, current_user.sub, image)
+    return await service.create_unit_event(data, current_user.sub)
 
 @router.get("/all", response_model=List[UnitEventResponse], dependencies=[Depends(require_manager)])
 async def Get_All_Unit_Events_By_Semester(
@@ -109,7 +108,6 @@ async def Update_Unit_Event(
     point: Optional[float] = Form(None),
     listUnitId: Optional[str] = Form(None),
     semester_id: Optional[str] = Form(None),
-    image: UploadFile = File(None),
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> BaseResponse:
@@ -128,7 +126,7 @@ async def Update_Unit_Event(
         
     data = UnitEventUpdate(**update_data)
     
-    return await service.update_unit_event(event_id, data, image)
+    return await service.update_unit_event(event_id, data)
 
 @router.delete("/{event_id}", response_model=BaseResponse, dependencies=[Depends(require_manager)])
 async def Delete_Unit_Event(

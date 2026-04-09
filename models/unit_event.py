@@ -22,7 +22,6 @@ class UnitEvent(Document):
     )
     type: UnitEventEnum
     semesterId: PydanticObjectId
-    image_url: Optional[str] = None
     listUnitId: List[PydanticObjectId] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.now)
     created_by: PydanticObjectId

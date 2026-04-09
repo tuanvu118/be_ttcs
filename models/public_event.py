@@ -1,8 +1,16 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 
 from beanie import Document, PydanticObjectId
-from pydantic import Field
+from pydantic import Field, BaseModel
+
+
+class EventFormField(BaseModel):
+    id: str
+    label: str
+    field_type: str  # text | textarea | number | select | radio | checkbox
+    required: bool = False
+    options: Optional[List[str]] = None
 
 
 class PublicEvent(Document):
@@ -16,6 +24,7 @@ class PublicEvent(Document):
     event_start: datetime
     event_end: datetime
     semester_id: PydanticObjectId
+    form_fields: List[EventFormField] = Field(default_factory=list)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )

@@ -13,7 +13,6 @@ class UnitEventCreate(BaseModel):
     description: Optional[str] = None
     point: Decimal = Field(default=Decimal("0"))
     type: UnitEventEnum
-    image_url: Optional[str] = None
     semesterId: Optional[PydanticObjectId] = None
     listUnitId: List[PydanticObjectId] = Field(default_factory=list)
 
@@ -24,7 +23,6 @@ class UnitEventResponse(BaseModel):
     point: Decimal = Field(default=Decimal("0"))
     type: UnitEventEnum
     semesterId: PydanticObjectId
-    image_url: Optional[str] = None
     created_at: datetime
     created_by: PydanticObjectId
     assigned_units: List[UnitRead]

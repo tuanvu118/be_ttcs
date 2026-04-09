@@ -123,8 +123,8 @@ class PublicEventService:
         )
 
         # validate form_fields nếu có update
-        if "form_fields" in update_data:
-            PublicEventService._validate_form_fields(update_data["form_fields"])
+        if data.form_fields is not None:
+            PublicEventService._validate_form_fields(data.form_fields)
 
         return await PublicEventRepository.update(event_id, update_data)
 

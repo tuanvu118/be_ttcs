@@ -5,12 +5,7 @@ from beanie import PydanticObjectId
 from pydantic import BaseModel, ConfigDict
 
 
-class EventFormField(BaseModel):
-    id: str
-    label: str
-    field_type: str  # text | textarea | number | select | radio | checkbox
-    required: bool = False
-    options: Optional[List[str]] = None
+from models.public_event import EventFormField
 
 
 class PublicEventBase(BaseModel):
