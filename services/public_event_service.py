@@ -97,7 +97,7 @@ class PublicEventService:
 
         if image:
             from services.cloudinary_service import upload_image
-            image_url = await upload_image(image)
+            image_url, _ = upload_image(image)
             update_data["image_url"] = image_url
 
         merged_data = {

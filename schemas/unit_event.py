@@ -6,7 +6,7 @@ from models.unit_event import UnitEventEnum
 from beanie import PydanticObjectId
 from datetime import datetime
 from pydantic import ConfigDict
-from schemas.unit import UnitBase
+from schemas.unit import UnitBase, UnitRead
 
 class UnitEventCreate(BaseModel):
     title: str
@@ -27,7 +27,7 @@ class UnitEventResponse(BaseModel):
     image_url: Optional[str] = None
     created_at: datetime
     created_by: PydanticObjectId
-    assigned_units: List[UnitBase]
+    assigned_units: List[UnitRead]
 
     model_config = ConfigDict(from_attributes=True)
 

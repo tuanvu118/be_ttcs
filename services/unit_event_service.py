@@ -11,7 +11,7 @@ from repositories.semester_repo import SemesterRepo
 from repositories.unit_repo import UnitRepo
 from repositories.user_role_repo import UserRoleRepo
 from services.semester_service import SemesterService
-from schemas.unit import UnitBase
+from schemas.unit import UnitBase, UnitRead
 
 class UnitEventService:
     def __init__(
@@ -52,7 +52,8 @@ class UnitEventService:
         units = await self.unit_repo.list_by_ids(unit_ids)
         unit_map = {str(unit.id): unit for unit in units}
         assigned_units = [
-            UnitBase(
+            UnitRead(
+                id=unit_map[str(unit_id)].id,
                 name=unit_map[str(unit_id)].name,
                 logo=unit_map[str(unit_id)].logo,
                 type=unit_map[str(unit_id)].type,
@@ -186,7 +187,7 @@ class UnitEventService:
         
         if image:
             from services.cloudinary_service import upload_image
-            image_url = await upload_image(image)
+            image_url, _ = upload_image(image)
             update_data["image_url"] = image_url
 
         list_unit_id = update_data.pop("listUnitId", None)
