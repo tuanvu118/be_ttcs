@@ -19,6 +19,10 @@ class PublicEventBase(BaseModel):
 
     event_start: datetime
     event_end: datetime
+    location: Optional[str] = None
+    max_participants: int = 0
+
+
 
     form_fields: List[EventFormField] = []
 
@@ -39,8 +43,11 @@ class PublicEventUpdate(BaseModel):
 
     event_start: Optional[datetime] = None
     event_end: Optional[datetime] = None
+    location: Optional[str] = None
+    max_participants: Optional[int] = None
 
     form_fields: Optional[List[EventFormField]] = None
+
 
     auto_add_report: Optional[bool] = None
 

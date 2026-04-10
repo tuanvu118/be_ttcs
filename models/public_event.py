@@ -17,14 +17,18 @@ class PublicEvent(Document):
     id: PydanticObjectId = Field(default_factory=PydanticObjectId)
     title: str
     description: str
-    image_url: Optional[str]=None
+    image_url: Optional[str] = None
     point: float = 0
+    location: Optional[str] = None
+    max_participants: int = 200
     registration_start: datetime
     registration_end: datetime
     event_start: datetime
     event_end: datetime
     semester_id: PydanticObjectId
     form_fields: List[EventFormField] = Field(default_factory=list)
+
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )

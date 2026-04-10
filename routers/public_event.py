@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, Form, UploadFile, File
+from fastapi import APIRouter, Depends, Form, UploadFile, File, status
 import json
 from schemas.public_event import PublicEventCreate, PublicEventRead, PublicEventUpdate
 from security import require_manager, require_user
@@ -21,9 +21,12 @@ async def create_event(
     event_start: str = Form(...),
     event_end: str = Form(...),
     form_fields: str = Form("[]"),
+    location: Optional[str] = Form(None),
+    max_participants: int = Form(0),
     semester_id: Optional[str] = Form(None),
     image: UploadFile = File(None),
     _=Depends(require_manager),
+
 ):
     from datetime import datetime
     
@@ -38,9 +41,12 @@ async def create_event(
         registration_end=datetime.fromisoformat(registration_end),
         event_start=datetime.fromisoformat(event_start),
         event_end=datetime.fromisoformat(event_end),
+        location=location,
+        max_participants=max_participants,
         form_fields=fields_list,
         semester_id=PydanticObjectId(semester_id) if semester_id else None
     )
+
     
     return await PublicEventService.create_event(data, image)
 
@@ -80,9 +86,12 @@ async def update_event(
     event_start: Optional[str] = Form(None),
     event_end: Optional[str] = Form(None),
     form_fields: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
+    max_participants: Optional[int] = Form(None),
     semester_id: Optional[str] = Form(None),
     image: UploadFile = File(None),
     _=Depends(require_manager),
+
 ):
     from datetime import datetime
     
@@ -90,6 +99,9 @@ async def update_event(
     if title is not None: update_data["title"] = title
     if description is not None: update_data["description"] = description
     if point is not None: update_data["point"] = point
+    if location is not None: update_data["location"] = location
+    if max_participants is not None: update_data["max_participants"] = max_participants
+
     
     if registration_start: update_data["registration_start"] = datetime.fromisoformat(registration_start)
     if registration_end: update_data["registration_end"] = datetime.fromisoformat(registration_end)
@@ -105,3 +117,12 @@ async def update_event(
     data = PublicEventUpdate(**update_data)
     
     return await PublicEventService.update_event(event_id, data, image)
+
+
+@router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_event(
+    event_id: PydanticObjectId,
+    _=Depends(require_manager),
+):
+    await PublicEventService.delete_event(event_id)
+

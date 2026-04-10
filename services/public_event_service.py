@@ -132,3 +132,10 @@ class PublicEventService:
     async def get_valid_events(semester_id: Optional[PydanticObjectId] = None):
         now = datetime.now(timezone.utc)
         return await PublicEventRepository.get_valid_events(now, semester_id=semester_id)
+
+    @staticmethod
+    async def delete_event(event_id: PydanticObjectId):
+        success = await PublicEventRepository.delete(event_id)
+        if not success:
+            app_exception(ErrorCode.EVENT_NOT_FOUND)
+        return True

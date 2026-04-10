@@ -49,19 +49,18 @@ class PublicEventRepository:
     @staticmethod
     async def get_valid_events(now: datetime, semester_id: Optional[PydanticObjectId] = None):
         query = {
-            "$or": [
-                {"registration_start": {"$gt": now}},
-                {
-                    "registration_start": {"$lte": now},
-                    "registration_end": {"$gte": now},
-                },
-                {
-                    "event_start": {"$lte": now},
-                    "event_end": {"$gte": now},
-                }
-            ]
+            "event_end": {"$gte": now}
         }
+
         if semester_id:
             query["semester_id"] = semester_id
             
         return await PublicEvent.find(query).sort("event_start").to_list()
+
+    @staticmethod
+    async def delete(event_id: PydanticObjectId):
+        event = await PublicEvent.get(event_id)
+        if event:
+            await event.delete()
+            return True
+        return False
