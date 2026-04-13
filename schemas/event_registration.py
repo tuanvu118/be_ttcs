@@ -9,6 +9,9 @@ class FormAnswer(BaseModel):
     field_id: str
     value: str
 
+class EventRegistrationRequest(BaseModel):
+    answers: List[FormAnswer] = Field(default_factory=list)
+
 class EventRegistrationResponse(BaseModel):
     id: PydanticObjectId
     event_id: PydanticObjectId

@@ -62,7 +62,16 @@ class EventRegistrationService:
 
         now = datetime.now(timezone.utc)
 
-        if now < event.registration_start or now > event.registration_end:
+        # Ensure registration times are aware
+        reg_start = event.registration_start
+        if reg_start.tzinfo is None:
+            reg_start = reg_start.replace(tzinfo=timezone.utc)
+        
+        reg_end = event.registration_end
+        if reg_end.tzinfo is None:
+            reg_end = reg_end.replace(tzinfo=timezone.utc)
+
+        if now < reg_start or now > reg_end:
             app_exception(ErrorCode.REGISTRATION_CLOSED)
 
         existed = await EventRegistrationRepository.get_by_event_and_user(
@@ -209,7 +218,7 @@ class EventRegistrationService:
 
         user_ids = [r.user_id for r in registrations]
 
-        users = await UserRepo.get_by_ids(user_ids)
+        users = await UserRepo().get_by_ids(user_ids)
 
         user_map = {u.id: u for u in users}
 

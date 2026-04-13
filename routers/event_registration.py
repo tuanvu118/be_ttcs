@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, Path, status
 
 from schemas.auth import TokenData
 from schemas.event_registration import (
+    EventRegistrationRequest,
     EventRegistrationResponse,
     EventRegistrationUserResponse,
     MyEventDetailResponse,
@@ -25,11 +26,13 @@ router = APIRouter(prefix="/events", tags=["Event Registration"])
 )
 async def register_public_event(
     event_id: PydanticObjectId = Path(...),
+    request: EventRegistrationRequest = None,
     current_user: TokenData = Depends(require_user),
 ):
     return await EventRegistrationService.register_public_event(
         event_id=event_id,
         user_id=PydanticObjectId(current_user.sub),
+        answers=request.answers if request else [],
     )
 
 

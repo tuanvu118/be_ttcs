@@ -17,6 +17,16 @@ class PublicEventService:
         event_start,
         event_end,
     ):
+        def ensure_aware(dt):
+            if dt and dt.tzinfo is None:
+                return dt.replace(tzinfo=timezone.utc)
+            return dt
+
+        registration_start = ensure_aware(registration_start)
+        registration_end = ensure_aware(registration_end)
+        event_start = ensure_aware(event_start)
+        event_end = ensure_aware(event_end)
+
         if registration_start >= registration_end:
             app_exception(ErrorCode.INVALID_REGISTRATION_TIME)
 
