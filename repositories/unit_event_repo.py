@@ -48,3 +48,11 @@ class UnitEventRepo:
     async def delete(self, unit_event: UnitEvent) -> None:
         await unit_event.delete()
 
+    @staticmethod
+    async def get_by_ids(
+            event_ids: List[PydanticObjectId],
+    ):
+        return await UnitEvent.find(
+            {"_id": {"$in": event_ids}}
+        ).to_list()
+

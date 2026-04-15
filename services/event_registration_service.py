@@ -9,36 +9,88 @@ from repositories.semester_repo import SemesterRepo
 from repositories.unit_event_repo import UnitEventRepo
 from repositories.user_unit_repo import UserUnitRepo
 from repositories.user_repo import UserRepo
-from repositories.unit_event_assigned_units_repo import UnitEventAssignedUnitsRepo
 from schemas.event_registration import (
     EventRegistrationResponse,
+    UnitEventRegistrationResponse,
     EventRegistrationUserResponse,
+    MyEventRegistrationResponse,
     MyEventDetailResponse,
-    MyEventRegistrationResponse, UnitEventRegistrationResponse,
 )
 
 
 class EventRegistrationService:
+
+    # -------------------------
+    # VALIDATE FORM
+    # -------------------------
+    @staticmethod
+    def _validate_answers(event, answers):
+
+        if not event.form_fields:
+            return
+
+        answer_map = {a.field_id: a.value for a in answers}
+
+        for field in event.form_fields:
+
+            if field.required and field.id not in answer_map:
+                app_exception(ErrorCode.MISSING_REQUIRED_FIELD)
+
+            if field.id not in answer_map:
+                continue
+
+            value = answer_map[field.id]
+
+            if field.field_type in ["select", "radio", "checkbox"]:
+                if value not in field.options:
+                    app_exception(ErrorCode.INVALID_OPTION)
+
+    # -------------------------
+    # PUBLIC EVENT REGISTER
+    # -------------------------
     @staticmethod
     async def register_public_event(
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
+        answers,
     ) -> EventRegistrationResponse:
+
         event = await PublicEventRepository.get_by_id(event_id)
+
         if not event:
             app_exception(ErrorCode.EVENT_NOT_FOUND)
 
+        now = datetime.now(timezone.utc)
+
+        # Ensure registration times are aware
+        reg_start = event.registration_start
+        if reg_start.tzinfo is None:
+            reg_start = reg_start.replace(tzinfo=timezone.utc)
+        
+        reg_end = event.registration_end
+        if reg_end.tzinfo is None:
+            reg_end = reg_end.replace(tzinfo=timezone.utc)
+
+        if now < reg_start or now > reg_end:
+            app_exception(ErrorCode.REGISTRATION_CLOSED)
+
         existed = await EventRegistrationRepository.get_by_event_and_user(
-            event_id, user_id
+            event_id,
+            user_id,
         )
+
         if existed:
             app_exception(ErrorCode.ALREADY_REGISTERED)
+
+        EventRegistrationService._validate_answers(event, answers)
 
         registration = await EventRegistrationRepository.create(
             {
                 "event_id": event_id,
+                "event_type": "public",
                 "user_id": user_id,
-                "registered_at": datetime.now(timezone.utc),
+                "answers": [a.model_dump() for a in answers],
+                "registered_at": now,
             }
         )
 
@@ -46,9 +98,9 @@ class EventRegistrationService:
 
     @staticmethod
     async def register_unit_event(
-            event_id: PydanticObjectId,
-            user_id: PydanticObjectId,
-            unit_id: PydanticObjectId,
+        event_id: PydanticObjectId,
+        user_id: PydanticObjectId,
+        unit_id: PydanticObjectId,
     ) -> UnitEventRegistrationResponse:
 
         event = await UnitEventRepo().get_by_id(event_id)
@@ -59,14 +111,12 @@ class EventRegistrationService:
         if not user:
             app_exception(ErrorCode.USER_NOT_FOUND)
 
-        units = await UnitEventAssignedUnitsRepo().list_by_event_id(event_id)
-
-        unit_ids = [u.unitId for u in units]
-
-        if unit_id not in unit_ids:
+        allowed_unit_ids = event.listUnitId or []
+        if unit_id not in allowed_unit_ids:
             app_exception(ErrorCode.UNIT_NOT_ALLOWED)
 
         active_semester = await SemesterRepo().get_active()
+
         if not active_semester:
             app_exception(ErrorCode.ACTIVE_SEMESTER_NOT_FOUND)
 
@@ -79,14 +129,17 @@ class EventRegistrationService:
             app_exception(ErrorCode.USER_NOT_IN_UNIT)
 
         existed = await EventRegistrationRepository.get_by_event_and_user(
-            event_id, user_id
+            event_id,
+            user_id,
         )
+
         if existed:
             app_exception(ErrorCode.ALREADY_REGISTERED)
 
         registration = await EventRegistrationRepository.create(
             {
                 "event_id": event_id,
+                "event_type": "unit",
                 "user_id": user_id,
                 "registered_at": datetime.now(timezone.utc),
             }
@@ -99,13 +152,18 @@ class EventRegistrationService:
             registered_at=registration.registered_at,
         )
 
+    # -------------------------
+    # CANCEL
+    # -------------------------
     @staticmethod
     async def cancel(
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
-    ) -> None:
+    ):
+
         deleted = await EventRegistrationRepository.delete_by_event_and_user(
-            event_id, user_id
+            event_id,
+            user_id,
         )
 
         if not deleted:
@@ -120,13 +178,19 @@ class EventRegistrationService:
         if not registrations:
             return []
 
-        event_ids = [registration.event_id for registration in registrations]
-        events = await PublicEventRepository.get_by_ids(event_ids)
-        event_map = {event.id: event for event in events}
+        event_ids = [r.event_id for r in registrations]
+
+        public_events = await PublicEventRepository.get_by_ids(event_ids)
+        unit_events = await UnitEventRepo().get_by_ids(event_ids)
+
+        event_map = {e.id: e for e in public_events + unit_events}
 
         result = []
-        for registration in registrations:
-            event = event_map.get(registration.event_id)
+
+        for r in registrations:
+
+            event = event_map.get(r.event_id)
+
             if not event:
                 continue
 
@@ -135,7 +199,7 @@ class EventRegistrationService:
                     event_id=event.id,
                     title=event.title,
                     event_start=event.event_start,
-                    registered_at=registration.registered_at,
+                    registered_at=r.registered_at,
                 )
             )
 
@@ -145,21 +209,23 @@ class EventRegistrationService:
     async def get_event_registrations(
         event_id: PydanticObjectId,
     ) -> list[EventRegistrationUserResponse]:
-        event = await PublicEventRepository.get_by_id(event_id)
-        if not event:
-            app_exception(ErrorCode.EVENT_NOT_FOUND)
 
         registrations = await EventRegistrationRepository.get_by_event(event_id)
         if not registrations:
             return []
 
-        user_ids = [registration.user_id for registration in registrations]
-        users = await UserRepo.get_by_ids(user_ids)
-        user_map = {user.id: user for user in users}
+        user_ids = [r.user_id for r in registrations]
+
+        users = await UserRepo().get_by_ids(user_ids)
+
+        user_map = {u.id: u for u in users}
 
         result = []
-        for registration in registrations:
-            user = user_map.get(registration.user_id)
+
+        for r in registrations:
+
+            user = user_map.get(r.user_id)
+
             if not user:
                 continue
 
@@ -168,7 +234,8 @@ class EventRegistrationService:
                     user_id=user.id,
                     full_name=user.full_name,
                     student_id=user.student_id,
-                    registered_at=registration.registered_at,
+                    answers=r.answers,
+                    registered_at=r.registered_at,
                 )
             )
 
@@ -179,12 +246,18 @@ class EventRegistrationService:
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
     ) -> MyEventDetailResponse:
+
         event = await PublicEventRepository.get_by_id(event_id)
+
+        if not event:
+            event = await UnitEventRepo().get_by_id(event_id)
+
         if not event:
             app_exception(ErrorCode.EVENT_NOT_FOUND)
 
         registration = await EventRegistrationRepository.get_by_event_and_user(
-            event_id, user_id
+            event_id,
+            user_id,
         )
 
         if not registration:
@@ -196,5 +269,6 @@ class EventRegistrationService:
             description=event.description,
             event_start=event.event_start,
             event_end=event.event_end,
+            answers=registration.answers,
             registered_at=registration.registered_at,
         )

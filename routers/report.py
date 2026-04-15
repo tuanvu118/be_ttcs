@@ -14,10 +14,7 @@ from schemas.report import (
 from security import get_current_user, require_manager, require_staff
 from services.report import ReportService
 
-router = APIRouter(
-    prefix="/api/reports",
-    tags=["Reports"],
-)
+router = APIRouter(prefix="/reports", tags=["Reports"])
 
 
 @router.get(

@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -6,16 +5,18 @@ from fastapi import Depends, Header
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
+from configs.settings import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    API_PREFIX,
+    JWT_SECRET,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+)
 from exceptions import ErrorCode, app_exception
 from schemas.auth import TokenData, UnitRole
 
 
-SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE_ME_SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
-REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{API_PREFIX}/auth/login")
 
 
 def create_access_token(
@@ -27,7 +28,7 @@ def create_access_token(
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=ALGORITHM)
     return encoded_jwt
 
 
@@ -40,12 +41,12 @@ def create_refresh_token(
         expires_delta or timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     )
     to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=ALGORITHM)
     return encoded_jwt
 
 
 def decode_token(token: str) -> Dict[str, Any]:
-    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:

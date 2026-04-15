@@ -1,17 +1,17 @@
+from fastapi import UploadFile
+from typing import List, Optional
 from repositories.unit_event_repo import UnitEventRepo
 from schemas.unit_event import UnitEventCreate, UnitEventResponse, UnitEventUpdate, UnitEventResponseByUnitId
 from schemas.response import BaseResponse
 from models.unit_event import UnitEvent, UnitEventEnum
 from datetime import datetime, timezone
 from beanie import PydanticObjectId
-from typing import List
 from exceptions import ErrorCode, app_exception
 from repositories.semester_repo import SemesterRepo
 from repositories.unit_repo import UnitRepo
 from repositories.user_role_repo import UserRoleRepo
 from services.semester_service import SemesterService
-from schemas.unit import UnitBase
-from repositories.semester_repo import SemesterRepo
+from schemas.unit import UnitBase, UnitRead
 
 class UnitEventService:
     def __init__(
@@ -52,7 +52,8 @@ class UnitEventService:
         units = await self.unit_repo.list_by_ids(unit_ids)
         unit_map = {str(unit.id): unit for unit in units}
         assigned_units = [
-            UnitBase(
+            UnitRead(
+                id=unit_map[str(unit_id)].id,
                 name=unit_map[str(unit_id)].name,
                 logo=unit_map[str(unit_id)].logo,
                 type=unit_map[str(unit_id)].type,
@@ -67,6 +68,7 @@ class UnitEventService:
             description=event.description,
             point=event.point,
             type=event.type,
+            semesterId=event.semesterId,
             created_at=event.created_at,
             created_by=event.created_by,
             assigned_units=assigned_units,
@@ -79,6 +81,7 @@ class UnitEventService:
             description=event.description,
             point=event.point,
             type=event.type,
+            semesterId=event.semesterId,
             created_at=event.created_at,
         )
 
@@ -99,7 +102,7 @@ class UnitEventService:
             description=payload.description,
             point=payload.point,
             type=payload.type,
-            semesterId=await self.semester_service.get_current_semester().id,
+            semesterId=payload.semesterId or (await self.semester_service.get_current_semester()).id,
             listUnitId=unique_unit_ids,
             created_at=datetime.now(timezone.utc),
             created_by=self._parse_object_id(current_user, "current_user_id"),
@@ -108,8 +111,12 @@ class UnitEventService:
         return await self._build_event_response(saved)
 
     async def get_all_unit_events_by_semester_id(
-        self, semester_id: PydanticObjectId | str
+        self, semester_id: Optional[PydanticObjectId | str] = None
     ) -> List[UnitEventResponse]:
+        if semester_id is None or semester_id == 'all':
+            events = await self.repo.get_all_active()
+            return [await self._build_event_response(event) for event in events]
+
         parsed_semester_id = self._parse_object_id(semester_id, "semesterId")
         await self.semester_service.get_semester_by_id(parsed_semester_id)
         events = await self.repo.list_active_by_semester_id(parsed_semester_id)
@@ -156,7 +163,9 @@ class UnitEventService:
         return await self._build_event_response(event)
 
     async def update_unit_event(
-        self, event_id: PydanticObjectId | str, data: UnitEventUpdate
+        self, 
+        event_id: PydanticObjectId | str, 
+        data: UnitEventUpdate,
     ) -> BaseResponse:
         parsed_event_id = self._parse_object_id(event_id, "event_id")
         try:

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from passlib.context import CryptContext
 
 from models.roles import Role, RoleCode
@@ -11,6 +13,11 @@ DEFAULT_ROLES = [RoleCode.ADMIN, RoleCode.MANAGER, RoleCode.STAFF, RoleCode.USER
 
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
+DEFAULT_SEMESTER_NAME = "Hoc ky 2"
+DEFAULT_SEMESTER_ACADEMIC_YEAR = "2025-2026"
+DEFAULT_SEMESTER_START = datetime(2026, 2, 1, tzinfo=timezone.utc)
+DEFAULT_SEMESTER_END = datetime(2026, 8, 31, 23, 59, 59, tzinfo=timezone.utc)
 
 
 async def seed_roles():
@@ -43,15 +50,40 @@ async def seed_roles():
         )
         default_unit = await default_unit.insert()
 
-    admin_role = await Role.find_one(Role.code == RoleCode.ADMIN)
-    active_semester = await Semester.find_one(Semester.is_active == True)
+    seeded_semester = await Semester.find_one(
+        Semester.name == DEFAULT_SEMESTER_NAME,
+        Semester.academic_year == DEFAULT_SEMESTER_ACADEMIC_YEAR,
+    )
+    if not seeded_semester:
+        seeded_semester = Semester(
+            name=DEFAULT_SEMESTER_NAME,
+            academic_year=DEFAULT_SEMESTER_ACADEMIC_YEAR,
+            start_date=DEFAULT_SEMESTER_START,
+            end_date=DEFAULT_SEMESTER_END,
+            is_active=True,
+        )
+        seeded_semester = await seeded_semester.insert()
+    elif not seeded_semester.is_active:
+        seeded_semester.is_active = True
+        seeded_semester.start_date = DEFAULT_SEMESTER_START
+        seeded_semester.end_date = DEFAULT_SEMESTER_END
+        await seeded_semester.save()
 
-    if admin_role and active_semester:
+    other_active_semesters = await Semester.find(
+        Semester.is_active == True,
+        Semester.id != seeded_semester.id,
+    ).to_list()
+    for semester in other_active_semesters:
+        semester.is_active = False
+        await semester.save()
+
+    admin_role = await Role.find_one(Role.code == RoleCode.ADMIN)
+    if admin_role:
         exists_user_role = await UserRole.find_one(
             (UserRole.user_id == admin_user.id),
             (UserRole.role_id == admin_role.id),
             (UserRole.unit_id == default_unit.id),
-            (UserRole.semester_id == active_semester.id),
+            (UserRole.semester_id == seeded_semester.id),
             (UserRole.is_active == True),
         )
 
@@ -60,6 +92,6 @@ async def seed_roles():
                 user_id=admin_user.id,
                 role_id=admin_role.id,
                 unit_id=default_unit.id,
-                semester_id=active_semester.id,
+                semester_id=seeded_semester.id,
                 is_active=True,
             ).insert()

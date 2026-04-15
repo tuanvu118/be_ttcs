@@ -1,19 +1,23 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, Path, status, Header
 from beanie import PydanticObjectId
+from fastapi import APIRouter, Depends, Header, Path, status
 
 from schemas.auth import TokenData
-from security import require_user, require_admin
-from services.event_registration_service import EventRegistrationService
 from schemas.event_registration import (
+    EventRegistrationRequest,
     EventRegistrationResponse,
     EventRegistrationUserResponse,
-    MyEventRegistrationResponse, MyEventDetailResponse, UnitEventRegistrationResponse,
+    MyEventDetailResponse,
+    MyEventRegistrationResponse,
+    UnitEventRegistrationResponse,
 )
+from security import require_admin, require_user
+from services.event_registration_service import EventRegistrationService
 
 
-router = APIRouter(prefix="/api/events", tags=["Event Registration"])
+router = APIRouter(prefix="/events", tags=["Event Registration"])
+
 
 @router.post(
     "/{event_id}/register_public_event",
@@ -22,12 +26,15 @@ router = APIRouter(prefix="/api/events", tags=["Event Registration"])
 )
 async def register_public_event(
     event_id: PydanticObjectId = Path(...),
+    request: EventRegistrationRequest = None,
     current_user: TokenData = Depends(require_user),
 ):
     return await EventRegistrationService.register_public_event(
         event_id=event_id,
-        user_id=PydanticObjectId(current_user.sub)
+        user_id=PydanticObjectId(current_user.sub),
+        answers=request.answers if request else [],
     )
+
 
 @router.post(
     "/{event_id}/register_unit_event",
@@ -42,7 +49,7 @@ async def register_unit_event(
     return await EventRegistrationService.register_unit_event(
         event_id=event_id,
         user_id=PydanticObjectId(current_user.sub),
-        unit_id=x_unit_id
+        unit_id=x_unit_id,
     )
 
 
@@ -56,8 +63,9 @@ async def cancel_registration(
 ):
     await EventRegistrationService.cancel(
         event_id=event_id,
-        user_id=PydanticObjectId(current_user.sub)
+        user_id=PydanticObjectId(current_user.sub),
     )
+
 
 @router.get(
     "/me/registrations",
@@ -70,17 +78,17 @@ async def get_my_registrations(
         user_id=PydanticObjectId(current_user.sub)
     )
 
+
 @router.get(
     "/{event_id}/registrations",
     response_model=List[EventRegistrationUserResponse],
-    dependencies=[Depends(require_admin)]
+    dependencies=[Depends(require_admin)],
 )
 async def get_event_registrations(
-    event_id: PydanticObjectId = Path(...)
+    event_id: PydanticObjectId = Path(...),
 ):
-    return await EventRegistrationService.get_event_registrations(
-        event_id=event_id
-    )
+    return await EventRegistrationService.get_event_registrations(event_id=event_id)
+
 
 @router.get(
     "/{event_id}/my-registration",
@@ -92,5 +100,5 @@ async def get_my_event_detail(
 ):
     return await EventRegistrationService.get_my_event_detail(
         event_id=event_id,
-        user_id=PydanticObjectId(current_user.sub)
+        user_id=PydanticObjectId(current_user.sub),
     )
