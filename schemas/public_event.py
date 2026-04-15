@@ -49,9 +49,6 @@ class PublicEventUpdate(BaseModel):
     form_fields: Optional[List[EventFormField]] = None
 
 
-    auto_add_report: Optional[bool] = None
-
-
 class PublicEventRead(PublicEventBase):
     id: PydanticObjectId
     semester_id: PydanticObjectId
@@ -63,5 +60,7 @@ class PublicEventRead(PublicEventBase):
 class PublicEventSummary(BaseModel):
     id: PydanticObjectId
     title: str
+    event_start: Optional[datetime] = None
+    location: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -49,6 +49,16 @@ class ReportRepository:
         await report.delete()
 
     @staticmethod
+    async def get_by_month_year(
+        month: int,
+        year: int
+    ) -> List[Report]:
+        return await Report.find({
+            "month": month,
+            "year": year
+        }).sort("-updated_at").to_list()
+
+    @staticmethod
     async def get_public_events_by_ids(
         ids: List[PydanticObjectId]
     ) -> List[PublicEvent]:

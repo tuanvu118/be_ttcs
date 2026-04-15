@@ -1,9 +1,8 @@
-from typing import List
-
-from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, Header, status
-
+from typing import List, Optional
 from schemas.auth import TokenData
+from beanie import PydanticObjectId
+from fastapi import APIRouter, Depends, Header, status, Body
+from fastapi.responses import StreamingResponse
 from schemas.report import (
     InternalEventCreate,
     InternalEventRead,
@@ -43,21 +42,13 @@ async def get_reports(
     "/{report_id}",
     response_model=ReportDetail,
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_staff)],
-)
-@router.get(
-    "/{report_id}",
-    response_model=ReportDetail,
-    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(get_current_user)],
 )
 async def get_report_detail(
     report_id: PydanticObjectId,
-    current_user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user)
 ):
-    return await ReportService.get_report_detail(
-        report_id=report_id,
-        current_user=current_user,
-    )
+    return await ReportService.get_report_detail(report_id, current_user)
 
 @router.post(
     "/{report_id}/internal-events",
@@ -105,4 +96,55 @@ async def delete_internal_event(
     await ReportService.delete_internal_event(
         report_id,
         event_id,
+    )
+@router.post(
+    "/{report_id}/submit",
+    response_model=ReportDetail,
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_staff)],
+)
+async def submit_report(
+    report_id: PydanticObjectId,
+):
+    return await ReportService.submit_report(report_id)
+
+
+@router.post(
+    "/{report_id}/status",
+    response_model=ReportDetail,
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_manager)],
+)
+async def update_report_status(
+    report_id: PydanticObjectId,
+    status: str = Body(..., embed=True),
+    note: Optional[str] = Body(None, embed=True),
+):
+    return await ReportService.update_report_status(report_id, status, note)
+
+
+@router.get(
+    "/export/summary",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_manager)],
+)
+async def export_summary_excel():
+    buffer = await ReportService.export_summary_excel()
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=report_summary.xlsx"}
+    )
+
+
+@router.get(
+    "/{report_id}/export/detail",
+    status_code=status.HTTP_200_OK,
+)
+async def export_detailed_excel(report_id: PydanticObjectId):
+    buffer = await ReportService.export_detailed_excel(report_id)
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=report_detail_{report_id}.xlsx"}
     )

@@ -50,6 +50,7 @@ class ErrorCode(int, Enum):
     UNIT_EVENT_SUBMISSION_ALREADY_APPROVED = 124
     LIST_USER_ID_IS_REQUIRED = 125
     UNIT_NOT_ASSIGNED_TO_EVENT = 126
+    REPORT_LOCKED = 127
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
@@ -189,6 +190,10 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.UNIT_NOT_ASSIGNED_TO_EVENT: {
         "status": status.HTTP_403_FORBIDDEN,
         "message": "Đơn vị của bạn không được giao sự kiện này",
+    },
+    ErrorCode.REPORT_LOCKED: {
+        "status": status.HTTP_403_FORBIDDEN,
+        "message": "Báo cáo đã khóa hoặc đã quá hạn nộp, không thể chỉnh sửa",
     },
 }
 
