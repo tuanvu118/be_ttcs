@@ -6,7 +6,6 @@ scheduler = AsyncIOScheduler()
 scheduler.add_job(
     ReportService.auto_create_monthly_reports,
     "cron",
-    day=1,
-    hour=0,
+    hour="*",
     minute=0,
 )

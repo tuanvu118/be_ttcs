@@ -1,5 +1,6 @@
 from models.unit_event_submissions import UnitEventSubmission
 from beanie import PydanticObjectId
+from datetime import datetime
 from typing import Optional, List
 
 class UnitEventSubmissionsRepo:
@@ -29,4 +30,18 @@ class UnitEventSubmissionsRepo:
     ) -> List[UnitEventSubmission]:
         return await UnitEventSubmission.find(
             UnitEventSubmission.unitEventId == unit_event_id
+        ).to_list()
+
+    async def get_approved_by_unit_and_date_range(
+        self, 
+        unit_id: PydanticObjectId,
+        start_date: datetime,
+        end_date: datetime
+    ) -> List[UnitEventSubmission]:
+        from models.unit_event_submissions import UnitEventSubmissionStatus
+        return await UnitEventSubmission.find(
+            UnitEventSubmission.unitId == unit_id,
+            UnitEventSubmission.status == UnitEventSubmissionStatus.APPROVED,
+            UnitEventSubmission.submittedAt >= start_date,
+            UnitEventSubmission.submittedAt <= end_date
         ).to_list()

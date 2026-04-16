@@ -1,20 +1,17 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List
 
 from beanie import PydanticObjectId
 from pydantic import BaseModel
 
-from schemas.public_event import PublicEventSummary
-
 
 class InternalEventCreate(BaseModel):
     title: str
-    description: str
+    description: Optional[str] = None
     evidence_url: Optional[str] = None
     location: Optional[str] = None
     participant_count: Optional[int] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    event_date: Optional[date] = None
 
 class InternalEventUpdate(BaseModel):
     title: Optional[str] = None
@@ -22,24 +19,28 @@ class InternalEventUpdate(BaseModel):
     evidence_url: Optional[str] = None
     location: Optional[str] = None
     participant_count: Optional[int] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    event_date: Optional[date] = None
 
 class InternalEventRead(BaseModel):
     id: PydanticObjectId
     title: str
-    description: Optional[str]
-    evidence_url: Optional[str]
-    location: Optional[str]
-    participant_count: Optional[int]
-    start_time: Optional[datetime]
-    end_time: Optional[datetime]
+    description: Optional[str] = None
+    evidence_url: Optional[str] = None
+    location: Optional[str] = None
+    participant_count: Optional[int] = None
+    event_date: Optional[date] = None
 
 
 
 class InternalSummary(BaseModel):
     id: PydanticObjectId
     title: str
+
+class UnitEventSummary(BaseModel):
+    id: PydanticObjectId
+    title: str
+    type: str
+    created_at: datetime
 
 class ReportBase(BaseModel):
     month: int
@@ -49,12 +50,16 @@ class ReportSummary(ReportBase):
     unit_id: PydanticObjectId
     semester_id: PydanticObjectId
     id: PydanticObjectId
+    status: str
+    updated_at: datetime
+    total_activities: int = 0
 
 
 class ReportDetail(ReportBase):
     id: PydanticObjectId
     unit_id: PydanticObjectId
-    public_events: List[PublicEventSummary]
-    internal_events: List[InternalSummary]
-
-
+    status: str
+    note: Optional[str]
+    updated_at: datetime
+    unit_events: List[UnitEventSummary] = []
+    internal_events: List[InternalEventRead] = []
