@@ -138,11 +138,23 @@ class ReportService:
         ]
 
     @staticmethod
-    async def get_all_reports() -> List[ReportSummary]:
-        month, year = ReportService._get_default_month_year()
-        reports = await ReportRepository.get_by_month_year(month, year)
+    async def get_all_reports(
+        month: Optional[int] = None,
+        year: Optional[int] = None,
+        unit_id: Optional[PydanticObjectId] = None,
+        status_filter: Optional[str] = None
+    ) -> List[ReportSummary]:
+        # If no filters provided, default to current cycle and exclude drafts
+        if month is None and year is None and unit_id is None and status_filter is None:
+            month, year = ReportService._get_default_month_year()
+        
+        reports = await ReportRepository.get_filtered(
+            month=month,
+            year=year,
+            unit_id=unit_id,
+            status=status_filter
+        )
 
-        # Only show reports that are NOT in "CHUA_NOP" status to Admins/Managers
         return [
             ReportSummary(
                 id=report.id,
@@ -154,7 +166,8 @@ class ReportService:
                 updated_at=report.updated_at,
                 total_activities=len(report.unit_event_ids) + len(report.internal_events)
             )
-            for report in reports if report.status != "CHUA_NOP"
+            for report in reports 
+            if status_filter is not None or report.status != "CHUA_NOP"
         ]
 
     @staticmethod
@@ -312,32 +325,80 @@ class ReportService:
         return report
 
     @staticmethod
-    async def export_summary_excel():
-        month, year = ReportService._get_default_month_year()
-        reports = await ReportRepository.get_by_month_year(month, year)
+    async def export_summary_excel(
+        month: Optional[int] = None,
+        year: Optional[int] = None,
+        unit_id: Optional[PydanticObjectId] = None,
+        status_filter: Optional[str] = None
+    ):
+        reports = await ReportRepository.get_filtered(
+            month=month,
+            year=year,
+            unit_id=unit_id,
+            status=status_filter
+        )
         
         data = []
         for r in reports:
+            # Skip drafts in summary unless explicitly filtered
+            if status_filter is None and r.status == "CHUA_NOP":
+                continue
+                
             unit = await UnitRepo().get_by_id(r.unit_id)
             data.append({
                 "Đơn vị": unit.name if unit else str(r.unit_id),
                 "Tháng": r.month,
                 "Năm": r.year,
+                "Số hoạt động": len(r.unit_event_ids) + len(r.internal_events),
                 "Trạng thái": r.status,
+                "Ngày cập nhật": r.updated_at.strftime("%d/%m/%Y %H:%M") if r.updated_at else "N/A",
                 "Ghi chú": r.note or ""
             })
         
         df = pd.DataFrame(data)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Summary')
-        
+            df.to_excel(writer, index=False, sheet_name='Tong_hop_bao_cao')
+            
+            # Formatting
+            workbook = writer.book
+            worksheet = writer.sheets['Tong_hop_bao_cao']
+            
+            # Header style
+            from openpyxl.styles import Font, Alignment, PatternFill
+            header_font = Font(bold=True, color="FFFFFF")
+            header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+            for cell in worksheet[1]:
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal='center')
+            
+            # Column widths
+            for col in worksheet.columns:
+                max_length = 0
+                column = col[0].column_letter
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                worksheet.column_dimensions[column].width = max_length + 5
+
         output.seek(0)
         return output
 
     @staticmethod
-    async def export_detailed_excel(report_id: PydanticObjectId):
+    async def export_detailed_excel(report_id: PydanticObjectId, user: TokenData):
         report = await ReportService._get_report_or_404(report_id)
+        
+        # Security check: Managers can export anything. Staff only their own unit's.
+        is_manager = any("ADMIN" in r.roles or "MANAGER" in r.roles for r in user.roles)
+        if not is_manager:
+            is_staff_of_unit = any(str(r.unit_id) == str(report.unit_id) for r in user.roles)
+            if not is_staff_of_unit:
+                app_exception(ErrorCode.INSUFFICIENT_PERMISSION)
+
         unit = await UnitRepo().get_by_id(report.unit_id)
         unit_name = unit.name if unit else "N/A"
 
@@ -347,27 +408,55 @@ class ReportService:
         # Unit Events (Assigned)
         for ue in unit_events:
             data.append({
-                "Tên sự kiện": ue.title,
-                "Loại": "Được phân công (U)",
-                "Thời gian": ue.created_at.strftime("%d/%m/%Y %H:%M") if ue.created_at else "N/A",
-                "Địa điểm": "Theo kế hoạch",
-                "Số người tham gia": "N/A"
+                "Tên sự kiện/hoạt động": ue.title,
+                "Loại hình": "Được phân công (Hệ thống)",
+                "Thời gian diễn ra": ue.created_at.strftime("%d/%m/%Y %H:%M") if ue.created_at else "N/A",
+                "Địa điểm": "Dữ liệu hệ thống",
+                "Số người tham gia": "Theo đăng ký",
+                "Ghi chú": "Hệ thống tự động đồng bộ"
             })
         
         # Internal Events
         for ie in report.internal_events:
             data.append({
-                "Tên sự kiện": ie.title,
-                "Loại": "Nội bộ (P)",
-                "Thời gian": ie.event_date.strftime("%d/%m/%Y %H:%M") if ie.event_date else "N/A",
+                "Tên sự kiện/hoạt động": ie.title,
+                "Loại hình": "Hoạt động nội bộ (Tự quản)",
+                "Thời gian diễn ra": ie.event_date.strftime("%d/%m/%Y") if ie.event_date else "N/A",
                 "Địa điểm": ie.location or "N/A",
-                "Số người tham gia": ie.participant_count or 0
+                "Số người tham gia": ie.participant_count or 0,
+                "Ghi chú": ie.description or ""
             })
         
         df = pd.DataFrame(data)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name=f'Report_{unit_name}')
-        
+            sheet_name = f'Bao_cao_{report.month}_{report.year}'
+            df.to_excel(writer, index=False, sheet_name=sheet_name)
+            
+            # Formatting
+            workbook = writer.book
+            worksheet = writer.sheets[sheet_name]
+            
+            from openpyxl.styles import Font, Alignment, PatternFill
+            # Header style
+            header_font = Font(bold=True, color="FFFFFF")
+            header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+            for cell in worksheet[1]:
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Auto column width
+            for col in worksheet.columns:
+                max_length = 0
+                column = col[0].column_letter
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                worksheet.column_dimensions[column].width = min(max_length + 5, 50) # Cap at 50
+
         output.seek(0)
         return output

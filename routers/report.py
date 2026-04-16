@@ -22,8 +22,13 @@ router = APIRouter(prefix="/reports", tags=["Reports"])
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_manager)],
 )
-async def get_all_reports():
-    return await ReportService.get_all_reports()
+async def get_all_reports(
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    unit_id: Optional[PydanticObjectId] = None,
+    status_filter: Optional[str] = None # 'status' is a reserved word/param in some contexts, using status_filter
+):
+    return await ReportService.get_all_reports(month, year, unit_id, status_filter)
 
 
 @router.get(
@@ -128,12 +133,18 @@ async def update_report_status(
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_manager)],
 )
-async def export_summary_excel():
-    buffer = await ReportService.export_summary_excel()
+async def export_summary_excel(
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    unit_id: Optional[PydanticObjectId] = None,
+    status_filter: Optional[str] = None
+):
+    buffer = await ReportService.export_summary_excel(month, year, unit_id, status_filter)
+    filename = f"report_summary_{month or 'all'}_{year or 'all'}.xlsx"
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=report_summary.xlsx"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
 
@@ -141,8 +152,11 @@ async def export_summary_excel():
     "/{report_id}/export/detail",
     status_code=status.HTTP_200_OK,
 )
-async def export_detailed_excel(report_id: PydanticObjectId):
-    buffer = await ReportService.export_detailed_excel(report_id)
+async def export_detailed_excel(
+    report_id: PydanticObjectId,
+    current_user: TokenData = Depends(get_current_user)
+):
+    buffer = await ReportService.export_detailed_excel(report_id, current_user)
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
