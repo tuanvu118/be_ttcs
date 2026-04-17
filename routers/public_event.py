@@ -1,7 +1,8 @@
 from typing import List, Optional
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, Form, UploadFile, File, status
+from fastapi import APIRouter, Depends, Form, UploadFile, File, status, HTTPException
+from pydantic import ValidationError
 import json
 from schemas.public_event import PublicEventCreate, PublicEventRead, PublicEventUpdate
 from security import require_manager, require_user
@@ -33,19 +34,22 @@ async def create_event(
     # Parse form_fields string to list of dicts
     fields_list = json.loads(form_fields)
     
-    data = PublicEventCreate(
-        title=title,
-        description=description,
-        point=point,
-        registration_start=datetime.fromisoformat(registration_start),
-        registration_end=datetime.fromisoformat(registration_end),
-        event_start=datetime.fromisoformat(event_start),
-        event_end=datetime.fromisoformat(event_end),
-        location=location,
-        max_participants=max_participants,
-        form_fields=fields_list,
-        semester_id=PydanticObjectId(semester_id) if semester_id else None
-    )
+    try:
+        data = PublicEventCreate(
+            title=title,
+            description=description,
+            point=point,
+            registration_start=datetime.fromisoformat(registration_start),
+            registration_end=datetime.fromisoformat(registration_end),
+            event_start=datetime.fromisoformat(event_start),
+            event_end=datetime.fromisoformat(event_end),
+            location=location,
+            max_participants=max_participants,
+            form_fields=fields_list,
+            semester_id=PydanticObjectId(semester_id) if semester_id else None
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors())
 
     
     return await PublicEventService.create_event(data, image)
@@ -114,8 +118,10 @@ async def update_event(
     if semester_id:
         update_data["semester_id"] = PydanticObjectId(semester_id)
         
-    data = PublicEventUpdate(**update_data)
-    
+    try:
+        data = PublicEventUpdate(**update_data)
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors())
     return await PublicEventService.update_event(event_id, data, image)
 
 

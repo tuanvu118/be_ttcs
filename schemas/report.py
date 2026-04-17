@@ -1,8 +1,8 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Optional, List
 
 from beanie import PydanticObjectId
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class InternalEventCreate(BaseModel):
@@ -42,6 +42,13 @@ class UnitEventSummary(BaseModel):
     type: str
     created_at: datetime
 
+    @field_validator("created_at", mode="before", check_fields=False)
+    @classmethod
+    def force_utc_ue(cls, v):
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
+
 class ReportBase(BaseModel):
     month: int
     year: int
@@ -54,6 +61,12 @@ class ReportSummary(ReportBase):
     updated_at: datetime
     total_activities: int = 0
 
+    @field_validator("updated_at", mode="before", check_fields=False)
+    @classmethod
+    def force_utc_update(cls, v):
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
 
 class ReportDetail(ReportBase):
     id: PydanticObjectId
@@ -63,3 +76,10 @@ class ReportDetail(ReportBase):
     updated_at: datetime
     unit_events: List[UnitEventSummary] = []
     internal_events: List[InternalEventRead] = []
+
+    @field_validator("updated_at", mode="before", check_fields=False)
+    @classmethod
+    def force_utc_update_detail(cls, v):
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v

@@ -10,6 +10,7 @@ class ErrorCode(int, Enum):
     USER_NOT_FOUND = 10
     USER_NOT_IN_UNIT = 11
     USER_ALREADY_IN_UNIT = 12
+    STUDENT_ID_ALREADY_EXISTS = 13
     UNIT_NOT_FOUND = 20
     UNIT_NOT_ALLOWED = 21
     INVALID_IMAGE_TYPE = 30
@@ -34,6 +35,7 @@ class ErrorCode(int, Enum):
 
     REGISTRATION_NOT_FOUND = 90
     ALREADY_REGISTERED = 91
+    EVENT_FULL = 92
 
     INVALID_POINT_VALUE = 100
     INVALID_UNIT_EVENT_TYPE_VALUE = 101
@@ -56,6 +58,10 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
         "message": "User khong ton tai",
+    },
+    ErrorCode.STUDENT_ID_ALREADY_EXISTS: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Mã sinh viên đã tồn tại",
     },
     ErrorCode.UNIT_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
@@ -185,6 +191,10 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.REGISTRATION_CLOSED: {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "Sự kiện đã đóng",
+    },
+    ErrorCode.EVENT_FULL: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Sự kiện đã hết chỗ đăng ký",
     },
 
     ErrorCode.UNIT_NOT_ASSIGNED_TO_EVENT: {

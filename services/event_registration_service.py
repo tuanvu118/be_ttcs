@@ -44,6 +44,9 @@ class EventRegistrationService:
             if field.field_type in ["select", "radio", "checkbox"]:
                 if value not in field.options:
                     app_exception(ErrorCode.INVALID_OPTION)
+            
+            if field.field_type == "text" and len(str(value)) > 1000:
+                app_exception(ErrorCode.INVALID_FORM_FIELD, "Câu trả lời không được quá 1000 ký tự")
 
     # -------------------------
     # PUBLIC EVENT REGISTER
@@ -82,6 +85,11 @@ class EventRegistrationService:
         if existed:
             app_exception(ErrorCode.ALREADY_REGISTERED)
 
+        # Check for overbooking
+        current_count = await EventRegistrationRepository.count_by_event(event_id)
+        if event.max_participants > 0 and current_count >= event.max_participants:
+            app_exception(ErrorCode.EVENT_FULL)
+
         EventRegistrationService._validate_answers(event, answers)
 
         registration = await EventRegistrationRepository.create(
@@ -93,6 +101,10 @@ class EventRegistrationService:
                 "registered_at": now,
             }
         )
+
+        reg_at = registration.registered_at
+        if reg_at.tzinfo is None:
+            registration.registered_at = reg_at.replace(tzinfo=timezone.utc)
 
         return EventRegistrationResponse.model_validate(registration)
 
@@ -144,12 +156,16 @@ class EventRegistrationService:
                 "registered_at": datetime.now(timezone.utc),
             }
         )
+        reg_at = registration.registered_at
+        if reg_at.tzinfo is None:
+            reg_at = reg_at.replace(tzinfo=timezone.utc)
+            
         return UnitEventRegistrationResponse(
             id=registration.id,
             event_id=registration.event_id,
             user_id=registration.user_id,
             unit_id=unit_id,
-            registered_at=registration.registered_at,
+            registered_at=reg_at,
         )
 
     # -------------------------
@@ -194,12 +210,16 @@ class EventRegistrationService:
             if not event:
                 continue
 
+            reg_at = r.registered_at
+            if reg_at.tzinfo is None:
+                reg_at = reg_at.replace(tzinfo=timezone.utc)
+
             result.append(
                 MyEventRegistrationResponse(
                     event_id=event.id,
                     title=event.title,
                     event_start=event.event_start,
-                    registered_at=r.registered_at,
+                    registered_at=reg_at,
                 )
             )
 
@@ -229,13 +249,17 @@ class EventRegistrationService:
             if not user:
                 continue
 
+            reg_at = r.registered_at
+            if reg_at.tzinfo is None:
+                reg_at = reg_at.replace(tzinfo=timezone.utc)
+
             result.append(
                 EventRegistrationUserResponse(
                     user_id=user.id,
                     full_name=user.full_name,
                     student_id=user.student_id,
                     answers=r.answers,
-                    registered_at=r.registered_at,
+                    registered_at=reg_at,
                 )
             )
 
@@ -263,12 +287,23 @@ class EventRegistrationService:
         if not registration:
             app_exception(ErrorCode.REGISTRATION_NOT_FOUND)
 
+        reg_at = registration.registered_at
+        if reg_at.tzinfo is None:
+            reg_at = reg_at.replace(tzinfo=timezone.utc)
+
         return MyEventDetailResponse(
             event_id=event.id,
             title=event.title,
             description=event.description,
+            image_url=getattr(event, 'image_url', None),
+            point=getattr(event, 'point', 0),
+            location=getattr(event, 'location', None),
+            max_participants=getattr(event, 'max_participants', 0),
+            registration_start=getattr(event, 'registration_start', None),
+            registration_end=getattr(event, 'registration_end', None),
             event_start=event.event_start,
             event_end=event.event_end,
+            form_fields=[f.model_dump() if hasattr(f, 'model_dump') else f for f in getattr(event, 'form_fields', [])],
             answers=registration.answers,
-            registered_at=registration.registered_at,
+            registered_at=reg_at,
         )

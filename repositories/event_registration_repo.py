@@ -29,6 +29,12 @@ class EventRegistrationRepository:
         ).to_list()
 
     @staticmethod
+    async def count_by_event(event_id):
+        return await EventRegistration.find(
+            EventRegistration.event_id == event_id
+        ).count()
+
+    @staticmethod
     async def delete_by_event_and_user(event_id, user_id):
         registration = await EventRegistration.find_one(
             EventRegistration.event_id == event_id,
