@@ -263,7 +263,9 @@ class UnitEventSubmissionsService:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_APPROVED)
 
         update_data = data.model_dump(exclude_unset=True)
-        list_user_id = update_data.pop("list_user_id", None)
+        list_MSV = update_data.pop("list_MSV", None)
+        if list_MSV is not None:
+            list_MSV = [str(x).strip() for x in list_MSV if str(x).strip()]
         for field, value in update_data.items():
             setattr(submission, field, value)
 
@@ -272,17 +274,17 @@ class UnitEventSubmissionsService:
         submission.submittedAt = datetime.now()
         saved = await self.repo.update(submission)
 
-        if list_user_id is not None:
-            if len(list_user_id) == 0:
+        if list_MSV is not None:
+            if len(list_MSV) == 0:
                 app_exception(ErrorCode.LIST_USER_ID_IS_REQUIRED)
             await self.unit_event_submission_members_repo.delete_all_by_unit_event_submission_id(
                 saved.id
             )
-            for user_id in list_user_id:
+            for student_id in list_MSV:
                 await self.unit_event_submission_members_repo.create(
                     UnitEventSubmissionMember(
                         unitEventSubmissionId=saved.id,
-                        userId=user_id,
+                        studentId=student_id,
                         checkIn=False,
                     )
                 )

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, computed_field
 from beanie import PydanticObjectId
 from datetime import datetime
 from models.unit_event_submissions import UnitEventSubmissionStatus
@@ -37,13 +37,23 @@ class UnitEventSubmissionMemberCreate(BaseModel):
     unitEventId: PydanticObjectId
     unitId: PydanticObjectId
     content: str
-    list_MSV: List[str] | None = None
+    list_MSV: List[str] | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "list_MSV", "list_msv", "listMsv", "list_user_id", "listUserId"
+        ),
+    )
 
 
 class UnitEventSubmissionMemberUpdate(BaseModel):
     content: str | None = None
     evidenceUrl: str | None = None
-    list_user_id: List[PydanticObjectId] | None = None
+    list_MSV: List[str] | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "list_MSV", "list_msv", "listMsv", "list_user_id", "listUserId"
+        ),
+    )
 
 
 class UnitEventSubmissionMemberResponse(BaseModel):
@@ -56,6 +66,12 @@ class UnitEventSubmissionMemberResponse(BaseModel):
     list_user_id: List[Union[PydanticObjectId, str]]
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def list_MSV(self) -> List[str]:
+        """Trùng dữ liệu với list_user_id (MSV hoặc id), tiện cho client đọc một key thống nhất."""
+        return [str(x) for x in self.list_user_id]
 
 
 class UnitEventSubmissionWithUnitResponse(BaseModel):
