@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from beanie import PydanticObjectId
+from beanie.operators import In
 
 from models.user_unit import UserUnit
 
@@ -32,6 +33,21 @@ class UserUnitRepo:
             UserUnit.unit_id == unit_id,
             UserUnit.semester_id == semester_id,
             UserUnit.is_active == True,
+        ).to_list()
+
+    async def list_active_by_unit_and_users(
+        self,
+        unit_id: PydanticObjectId,
+        semester_id: PydanticObjectId,
+        user_ids: List[PydanticObjectId],
+    ) -> List[UserUnit]:
+        if not user_ids:
+            return []
+        return await UserUnit.find(
+            UserUnit.unit_id == unit_id,
+            UserUnit.semester_id == semester_id,
+            UserUnit.is_active == True,
+            In(UserUnit.user_id, user_ids),
         ).to_list()
 
     async def deactivate(self, user_unit: UserUnit) -> UserUnit:

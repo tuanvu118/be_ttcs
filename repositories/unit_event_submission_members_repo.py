@@ -1,6 +1,7 @@
 from models.unit_event_submission_members import UnitEventSubmissionMember
 from beanie import PydanticObjectId
 from typing import Optional, List
+from beanie.operators import In
 
 
 class UnitEventSubmissionMembersRepo:
@@ -17,6 +18,15 @@ class UnitEventSubmissionMembersRepo:
 
     async def get_all_by_unit_event_submission_id(self, unit_event_submission_id: PydanticObjectId) -> List[UnitEventSubmissionMember]:
         return await UnitEventSubmissionMember.find(UnitEventSubmissionMember.unitEventSubmissionId == unit_event_submission_id).to_list()
+
+    async def get_all_by_unit_event_submission_ids(
+        self, unit_event_submission_ids: List[PydanticObjectId]
+    ) -> List[UnitEventSubmissionMember]:
+        if not unit_event_submission_ids:
+            return []
+        return await UnitEventSubmissionMember.find(
+            In(UnitEventSubmissionMember.unitEventSubmissionId, unit_event_submission_ids)
+        ).to_list()
 
     async def delete_all_by_unit_event_submission_id(
         self, unit_event_submission_id: PydanticObjectId

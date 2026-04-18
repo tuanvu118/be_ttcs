@@ -1,6 +1,8 @@
 from repositories.unit_event_submissions_repo import UnitEventSubmissionsRepo
 from repositories.unit_event_submission_members_repo import UnitEventSubmissionMembersRepo
 from repositories.unit_repo import UnitRepo
+from repositories.user_repo import UserRepo
+from repositories.user_unit_repo import UserUnitRepo
 from schemas.unit_event_submissions import (
     UnitEventSubmissionCreate,
     UnitEventSubmissionResponse,
@@ -10,6 +12,7 @@ from schemas.unit_event_submissions import (
     UnitEventSubmissionMemberUpdate,
     UnitEventSubmissionMemberResponse,
     UnitEventSubmissionWithUnitResponse,
+    UnitEventSubmissionHTSKListItemResponse,
 )
 from models.unit_event_submissions import UnitEventSubmission, UnitEventSubmissionStatus
 from models.unit_event import UnitEvent
@@ -20,6 +23,7 @@ from beanie import PydanticObjectId
 from datetime import datetime
 from schemas.unit import UnitBase
 from typing import List
+from schemas.users import UserRead
 
 class UnitEventSubmissionsService:
     def __init__(
@@ -33,6 +37,8 @@ class UnitEventSubmissionsService:
             unit_event_submission_members_repo or UnitEventSubmissionMembersRepo()
         )
         self.unit_repo = unit_repo or UnitRepo()
+        self.user_repo = UserRepo()
+        self.user_unit_repo = UserUnitRepo()
     def _parse_object_id(self, value: PydanticObjectId | str, field_name: str) -> PydanticObjectId:
         try:
             return PydanticObjectId(str(value))
@@ -71,6 +77,43 @@ class UnitEventSubmissionsService:
             submittedAt=submission.submittedAt,
             list_user_id=list_user_id,
         )
+
+    async def _validate_students_belong_to_unit(
+        self,
+        student_ids: List[str],
+        unit_id: PydanticObjectId,
+        semester_id: PydanticObjectId,
+    ) -> None:
+        normalized_student_ids = [str(student_id).strip() for student_id in student_ids if str(student_id).strip()]
+        if not normalized_student_ids:
+            app_exception(ErrorCode.LIST_USER_ID_IS_REQUIRED)
+
+        users = await self.user_repo.get_by_student_ids(normalized_student_ids)
+        user_by_student_id = {user.student_id: user for user in users}
+        missing_student_ids = [
+            student_id for student_id in normalized_student_ids if student_id not in user_by_student_id
+        ]
+        if missing_student_ids:
+            app_exception(
+                ErrorCode.USER_NOT_IN_UNIT,
+                extra_detail="Sinh viên không thuộc đơn vị do bạn quản lý",
+            )
+
+        user_ids = [user.id for user in users]
+        active_memberships = await self.user_unit_repo.list_active_by_unit_and_users(
+            unit_id, semester_id, user_ids
+        )
+        active_user_ids = {membership.user_id for membership in active_memberships}
+        invalid_student_ids = [
+            student_id
+            for student_id in normalized_student_ids
+            if user_by_student_id[student_id].id not in active_user_ids
+        ]
+        if invalid_student_ids:
+            app_exception(
+                ErrorCode.USER_NOT_IN_UNIT,
+                extra_detail="Sinh viên không thuộc đơn vị do bạn quản lý",
+            )
 
     async def create_unit_event_submission(self, data: UnitEventSubmissionCreate, current_user: str) -> UnitEventSubmissionResponse:
         unit_event_id = self._parse_object_id(data.unitEventId, "unitEventId")
@@ -206,6 +249,9 @@ class UnitEventSubmissionsService:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_EXISTS)
         if data.list_MSV is None:
             app_exception(ErrorCode.LIST_USER_ID_IS_REQUIRED)
+        await self._validate_students_belong_to_unit(
+            data.list_MSV, unit_id, unit_event.semesterId
+        )
         unit_event_submission = UnitEventSubmission(
             unitEventId=unit_event_id,
             unitId=unit_id,
@@ -277,6 +323,9 @@ class UnitEventSubmissionsService:
         if list_MSV is not None:
             if len(list_MSV) == 0:
                 app_exception(ErrorCode.LIST_USER_ID_IS_REQUIRED)
+            await self._validate_students_belong_to_unit(
+                list_MSV, parsed_unit_id, unit_event.semesterId
+            )
             await self.unit_event_submission_members_repo.delete_all_by_unit_event_submission_id(
                 saved.id
             )
@@ -290,3 +339,68 @@ class UnitEventSubmissionsService:
                 )
 
         return await self._build_submission_member_response(saved)
+
+    async def get_all_htsk_members_by_unit_event_id(
+        self, unit_event_id: PydanticObjectId | str
+    ) -> List[UnitEventSubmissionHTSKListItemResponse]:
+        parsed_unit_event_id = self._parse_object_id(unit_event_id, "unit_event_id")
+        unit_event = await UnitEvent.get(parsed_unit_event_id)
+        if not unit_event:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        if unit_event.type != UnitEventEnum.HTSK:
+            app_exception(ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE)
+
+        submissions = await self.repo.get_all_by_unit_event_id(parsed_unit_event_id)
+        if not submissions:
+            return []
+
+        submission_ids = [submission.id for submission in submissions]
+        members = await self.unit_event_submission_members_repo.get_all_by_unit_event_submission_ids(
+            submission_ids
+        )
+        if not members:
+            return []
+
+        unit_ids = list({submission.unitId for submission in submissions})
+        units = await self.unit_repo.list_by_ids(unit_ids)
+        unit_name_map = {str(unit.id): unit.name for unit in units}
+
+        submission_unit_map = {str(submission.id): submission.unitId for submission in submissions}
+
+        user_id_members = [member.userId for member in members if member.userId is not None]
+        student_ids = [
+            str(member.studentId).strip()
+            for member in members
+            if member.userId is None and member.studentId is not None and str(member.studentId).strip()
+        ]
+
+        users_by_id = {
+            str(user.id): user for user in await UserRepo.get_by_ids(user_id_members)
+        }
+        users_by_student_id = {
+            user.student_id: user for user in await self.user_repo.get_by_student_ids(student_ids)
+        }
+
+        result: List[UnitEventSubmissionHTSKListItemResponse] = []
+        for member in members:
+            user = None
+            if member.userId is not None:
+                user = users_by_id.get(str(member.userId))
+            elif member.studentId is not None:
+                user = users_by_student_id.get(str(member.studentId).strip())
+            if user is None:
+                continue
+
+            unit_id = submission_unit_map.get(str(member.unitEventSubmissionId))
+            if unit_id is None:
+                continue
+            unit_name = unit_name_map.get(str(unit_id), "")
+
+            result.append(
+                UnitEventSubmissionHTSKListItemResponse(
+                    user=UserRead.model_validate(user),
+                    unit_name=unit_name,
+                    checkIn=member.checkIn,
+                )
+            )
+        return result

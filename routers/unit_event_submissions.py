@@ -7,6 +7,7 @@ from schemas.unit_event_submissions import (
     UnitEventSubmissionMemberUpdate,
     UnitEventSubmissionMemberResponse,
     UnitEventSubmissionWithUnitResponse,
+    UnitEventSubmissionHTSKListItemResponse,
 )
 from typing import List
 from beanie import PydanticObjectId
@@ -142,3 +143,16 @@ async def update_unit_event_submission_member(
     Sửa phản hồi HTSK theo unit_event_id và X-Unit-Id của đơn vị mình.
     """
     return await service.update_unit_event_submission_member(unit_event_id, x_unit_id, data)
+
+
+@router.get("/HTSK/list", response_model=List[UnitEventSubmissionHTSKListItemResponse])
+async def get_all_unit_event_submission_members_by_unit_event_id(
+    unit_event_id: PydanticObjectId,
+    current_user: TokenData = Depends(require_manager),
+    service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
+) -> List[UnitEventSubmissionHTSKListItemResponse]:
+    """
+    Lấy danh sách sinh viên các đơn vị đã nộp lên theo unit_event_id (chỉ dành cho sự kiện HTSK).
+    Quyền: ADMIN hoặc MANAGER.
+    """
+    return await service.get_all_htsk_members_by_unit_event_id(unit_event_id)
