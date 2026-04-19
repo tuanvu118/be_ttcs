@@ -8,8 +8,15 @@ from exceptions import ErrorCode, app_exception
 from schemas.public_event import PublicEventCreate, PublicEventUpdate
 from repositories.public_event_repo import PublicEventRepository
 from repositories.semester_repo import SemesterRepo
+from repositories.event_registration_repo import EventRegistrationRepository
 
 class PublicEventService:
+    @staticmethod
+    def _ensure_utc(dt):
+        if dt and dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+
     @staticmethod
     def _validate_time(
         registration_start,
@@ -17,15 +24,10 @@ class PublicEventService:
         event_start,
         event_end,
     ):
-        def ensure_aware(dt):
-            if dt and dt.tzinfo is None:
-                return dt.replace(tzinfo=timezone.utc)
-            return dt
-
-        registration_start = ensure_aware(registration_start)
-        registration_end = ensure_aware(registration_end)
-        event_start = ensure_aware(event_start)
-        event_end = ensure_aware(event_end)
+        registration_start = PublicEventService._ensure_utc(registration_start)
+        registration_end = PublicEventService._ensure_utc(registration_end)
+        event_start = PublicEventService._ensure_utc(event_start)
+        event_end = PublicEventService._ensure_utc(event_end)
 
         if registration_start >= registration_end:
             app_exception(ErrorCode.INVALID_REGISTRATION_TIME)
@@ -35,6 +37,8 @@ class PublicEventService:
 
         if event_start >= event_end:
             app_exception(ErrorCode.INVALID_EVENT_TIME)
+        
+        return registration_start, registration_end, event_start, event_end
 
     #validate form fields
     @staticmethod
@@ -56,7 +60,7 @@ class PublicEventService:
     @staticmethod
     async def create_event(data: PublicEventCreate, image: Optional[UploadFile] = None):
 
-        PublicEventService._validate_time(
+        data.registration_start, data.registration_end, data.event_start, data.event_end = PublicEventService._validate_time(
             data.registration_start,
             data.registration_end,
             data.event_start,
@@ -66,6 +70,12 @@ class PublicEventService:
         # validate form
         PublicEventService._validate_form_fields(data.form_fields)
         payload = data.model_dump()
+        
+        # Ensure payload has the aware datetimes if model_dump didn't preserve them as aware (it should, but just in case)
+        payload["registration_start"] = data.registration_start
+        payload["registration_end"] = data.registration_end
+        payload["event_start"] = data.event_start
+        payload["event_end"] = data.event_end
         
         if image:
             from services.cloudinary_service import upload_image
@@ -83,15 +93,29 @@ class PublicEventService:
         return await PublicEventRepository.create(payload)
 
     @staticmethod
+    async def _add_participant_count(event) -> dict:
+        count = await EventRegistrationRepository.count_by_event(event.id)
+        dump = event.model_dump()
+        dump["current_participants"] = count
+        return dump
+
+    @staticmethod
     async def get_events(semester_id: Optional[PydanticObjectId] = None):
-        return await PublicEventRepository.get_all(semester_id=semester_id)
+        events = await PublicEventRepository.get_all(semester_id=semester_id)
+        return [await PublicEventService._add_participant_count(e) for e in events]
+
+    @staticmethod
+    async def get_valid_events(semester_id: Optional[PydanticObjectId] = None):
+        events = await PublicEventRepository.get_valid_events(datetime.now(), semester_id=semester_id)
+        return [await PublicEventService._add_participant_count(e) for e in events]
 
     @staticmethod
     async def get_event_by_id(event_id: PydanticObjectId):
         event = await PublicEventRepository.get_by_id(event_id)
         if not event:
              app_exception(ErrorCode.EVENT_NOT_FOUND)
-        return event
+             
+        return await PublicEventService._add_participant_count(event)
 
     @staticmethod
     async def update_event(event_id: PydanticObjectId, data: PublicEventUpdate, image: Optional[UploadFile] = None):
@@ -125,12 +149,18 @@ class PublicEventService:
             ),
         }
 
-        PublicEventService._validate_time(
+        merged_data["registration_start"], merged_data["registration_end"], merged_data["event_start"], merged_data["event_end"] = PublicEventService._validate_time(
             merged_data["registration_start"],
             merged_data["registration_end"],
             merged_data["event_start"],
             merged_data["event_end"],
         )
+
+        # Update update_data with aware datetimes
+        if "registration_start" in update_data: update_data["registration_start"] = merged_data["registration_start"]
+        if "registration_end" in update_data: update_data["registration_end"] = merged_data["registration_end"]
+        if "event_start" in update_data: update_data["event_start"] = merged_data["event_start"]
+        if "event_end" in update_data: update_data["event_end"] = merged_data["event_end"]
 
         # validate form_fields nếu có update
         if data.form_fields is not None:
