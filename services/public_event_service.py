@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, timezone, timedelta
+from typing import Optional, List
 
 from beanie import PydanticObjectId
 from fastapi import UploadFile
@@ -100,14 +100,48 @@ class PublicEventService:
         return dump
 
     @staticmethod
-    async def get_events(semester_id: Optional[PydanticObjectId] = None):
-        events = await PublicEventRepository.get_all(semester_id=semester_id)
-        return [await PublicEventService._add_participant_count(e) for e in events]
+    async def get_events(
+        semester_id: Optional[PydanticObjectId] = None,
+        skip: int = 0,
+        limit: int = 10
+    ):
+        events, total = await PublicEventRepository.get_all(semester_id=semester_id, skip=skip, limit=limit)
+        items = [await PublicEventService._add_participant_count(e) for e in events]
+        return {"items": items, "total": total}
 
     @staticmethod
-    async def get_valid_events(semester_id: Optional[PydanticObjectId] = None):
-        events = await PublicEventRepository.get_valid_events(datetime.now(), semester_id=semester_id)
-        return [await PublicEventService._add_participant_count(e) for e in events]
+    async def get_valid_events(
+        semester_id: Optional[PydanticObjectId] = None,
+        search: Optional[str] = None,
+        time_filter: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 10
+    ):
+        now = datetime.now(timezone.utc)
+        
+        started_after = None
+        started_before = None
+        
+        if time_filter == "this_week":
+            started_after = now
+            started_before = now + timedelta(days=7)
+        elif time_filter == "this_month":
+            started_after = now
+            started_before = now + timedelta(days=30)
+        elif time_filter == "upcoming":
+            started_after = now
+            
+        events, total = await PublicEventRepository.get_valid_events(
+            now=now,
+            semester_id=semester_id,
+            search=search,
+            started_after=started_after,
+            started_before=started_before,
+            skip=skip,
+            limit=limit
+        )
+        items = [await PublicEventService._add_participant_count(e) for e in events]
+        return {"items": items, "total": total}
 
     @staticmethod
     async def get_event_by_id(event_id: PydanticObjectId):
@@ -168,10 +202,6 @@ class PublicEventService:
 
         return await PublicEventRepository.update(event_id, update_data)
 
-    @staticmethod
-    async def get_valid_events(semester_id: Optional[PydanticObjectId] = None):
-        now = datetime.now(timezone.utc)
-        return await PublicEventRepository.get_valid_events(now, semester_id=semester_id)
 
     @staticmethod
     async def delete_event(event_id: PydanticObjectId):

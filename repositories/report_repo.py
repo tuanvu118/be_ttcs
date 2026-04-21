@@ -34,10 +34,17 @@ class ReportRepository:
         return await Report.find_all().to_list()
 
     @staticmethod
-    async def get_by_unit(unit_id: PydanticObjectId) -> List[Report]:
-        return await Report.find({
+    async def get_by_unit(
+        unit_id: PydanticObjectId,
+        skip: int = 0,
+        limit: int = 10
+    ) -> (List[Report], int):
+        cursor = Report.find({
             "unit_id": unit_id
-        }).to_list()
+        })
+        total = await cursor.count()
+        items = await cursor.sort("-updated_at").skip(skip).limit(limit).to_list()
+        return items, total
 
     @staticmethod
     async def save(report: Report) -> Report:
@@ -53,8 +60,10 @@ class ReportRepository:
         month: Optional[int] = None,
         year: Optional[int] = None,
         unit_id: Optional[PydanticObjectId] = None,
-        status: Optional[str] = None
-    ) -> List[Report]:
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 10
+    ) -> (List[Report], int):
         query = {}
         if month is not None:
             query["month"] = month
@@ -65,7 +74,10 @@ class ReportRepository:
         if status is not None:
             query["status"] = status
         
-        return await Report.find(query).sort("-updated_at").to_list()
+        cursor = Report.find(query)
+        total = await cursor.count()
+        items = await cursor.sort("-updated_at").skip(skip).limit(limit).to_list()
+        return items, total
 
     @staticmethod
     async def get_by_month_year(

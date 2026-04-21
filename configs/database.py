@@ -15,6 +15,7 @@ from models.unit_event_submissions import UnitEventSubmission
 from models.user_unit import UserUnit
 from models.users import User
 from models.users_roles import UserRole
+from models.event_promotion import EventPromotion
 
 client = AsyncIOMotorClient(MONGO_URI)
 
@@ -36,6 +37,7 @@ async def init_db():
             UnitEvent,
             UnitEventSubmission,
             UnitEventSubmissionMember,
+            EventPromotion,
         ],
     )
 
