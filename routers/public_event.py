@@ -1,12 +1,10 @@
 from typing import List, Optional
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, Form, UploadFile, File, status, HTTPException
+from fastapi import APIRouter, Depends, Form, UploadFile, File, status, HTTPException, Query
 from pydantic import ValidationError
 import json
-from bson.errors import InvalidId
-from exceptions import ErrorCode, app_exception
-from schemas.public_event import PublicEventCreate, PublicEventRead, PublicEventUpdate
+from schemas.public_event import PublicEventCreate, PublicEventRead, PublicEventUpdate, PublicEventPaginationResponse
 from security import require_manager, require_user
 from services.public_event_service import PublicEventService
 
@@ -67,26 +65,36 @@ async def create_event(
     return await PublicEventService.create_event(data, image)
 
 
-@router.get("/", response_model=List[PublicEventRead])
+@router.get("/", response_model=PublicEventPaginationResponse)
 async def get_events(
     semester_id: Optional[PydanticObjectId] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1),
     _=Depends(require_manager),
 ):
-    return await PublicEventService.get_events(semester_id=semester_id)
+    return await PublicEventService.get_events(semester_id=semester_id, skip=skip, limit=limit)
 
 
-@router.get("/valid", response_model=List[PublicEventRead])
+@router.get("/valid", response_model=PublicEventPaginationResponse)
 async def get_valid_events(
-    semester_id: Optional[PydanticObjectId] = None,
-    _=Depends(require_user),
+    semester_id: Optional[PydanticObjectId] = Query(None, alias="semester_id"),
+    search: Optional[str] = Query(None),
+    time_filter: Optional[str] = Query(None, alias="timeFilter"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1),
 ):
-    return await PublicEventService.get_valid_events(semester_id=semester_id)
+    return await PublicEventService.get_valid_events(
+        semester_id=semester_id,
+        search=search,
+        time_filter=time_filter,
+        skip=skip,
+        limit=limit
+    )
 
 
 @router.get("/{event_id}", response_model=PublicEventRead)
 async def get_detail_event(
     event_id: PydanticObjectId,
-    _=Depends(require_user),
 ):
     return await PublicEventService.get_event_by_id(event_id)
 

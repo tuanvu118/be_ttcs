@@ -18,6 +18,8 @@ from routers.unit import router as unit_router
 from routers.unit_event import router as unit_event_router
 from routers.unit_event_submissions import router as unit_event_submissions_router
 from routers.users import router as users_router
+from routers.event_promotion import router as event_promotion_router
+from routers.upload import router as upload_router
 from scheduler.monthly_report import scheduler
 
 app = FastAPI(
@@ -38,7 +40,8 @@ api_router.include_router(report_router)
 api_router.include_router(event_registration_router)
 api_router.include_router(unit_event_router)
 api_router.include_router(unit_event_submissions_router)
-api_router.include_router(attendance_router)
+api_router.include_router(event_promotion_router)
+api_router.include_router(upload_router)
 app.include_router(api_router)
 
 

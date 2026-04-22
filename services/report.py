@@ -23,6 +23,7 @@ from schemas.report import (
     ReportDetail,
     ReportSummary,
     UnitEventSummary,
+    ReportPaginationResponse,
 )
 
 
@@ -114,61 +115,83 @@ class ReportService:
     @staticmethod
     async def get_reports_by_unit(
         unit_id: PydanticObjectId,
-    ) -> List[ReportSummary]:
+        month: Optional[int] = None,
+        year: Optional[int] = None,
+        status_filter: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 10
+    ) -> ReportPaginationResponse:
         # Ensure current cycle report exists
         semester = await SemesterRepo().get_active()
         if semester:
-            month, year = ReportService._get_default_month_year()
-            await ReportService.auto_create_report_for_unit(unit_id, month, year, semester.id)
+            m, y = ReportService._get_default_month_year()
+            await ReportService.auto_create_report_for_unit(unit_id, m, y, semester.id)
 
-        reports = await ReportRepository.get_by_unit(unit_id)
+        reports, total = await ReportRepository.get_filtered(
+            unit_id=unit_id,
+            month=month,
+            year=year,
+            status=status_filter,
+            skip=skip,
+            limit=limit
+        )
 
-        return [
-            ReportSummary(
-                id=report.id,
-                unit_id=report.unit_id,
-                month=report.month,
-                semester_id=report.semester_id,
-                year=report.year,
-                status=report.status,
-                updated_at=report.updated_at,
-                total_activities=len(report.unit_event_ids) + len(report.internal_events)
-            )
-            for report in reports
-        ]
+        return ReportPaginationResponse(
+            items=[
+                ReportSummary(
+                    id=report.id,
+                    unit_id=report.unit_id,
+                    month=report.month,
+                    semester_id=report.semester_id,
+                    year=report.year,
+                    status=report.status,
+                    updated_at=report.updated_at,
+                    total_activities=len(report.unit_event_ids) + len(report.internal_events)
+                )
+                for report in reports
+            ],
+            total=total
+        )
 
     @staticmethod
     async def get_all_reports(
         month: Optional[int] = None,
         year: Optional[int] = None,
         unit_id: Optional[PydanticObjectId] = None,
-        status_filter: Optional[str] = None
-    ) -> List[ReportSummary]:
+        status_filter: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 10
+    ) -> ReportPaginationResponse:
         # If no filters provided, default to current cycle and exclude drafts
         if month is None and year is None and unit_id is None and status_filter is None:
             month, year = ReportService._get_default_month_year()
         
-        reports = await ReportRepository.get_filtered(
+        reports, total = await ReportRepository.get_filtered(
             month=month,
             year=year,
             unit_id=unit_id,
-            status=status_filter
+            status=status_filter,
+            skip=skip,
+            limit=limit
         )
 
-        return [
-            ReportSummary(
-                id=report.id,
-                unit_id=report.unit_id,
-                semester_id=report.semester_id,
-                month=report.month,
-                year=report.year,
-                status=report.status,
-                updated_at=report.updated_at,
-                total_activities=len(report.unit_event_ids) + len(report.internal_events)
-            )
-            for report in reports 
-            if status_filter is not None or report.status != "CHUA_NOP"
-        ]
+        return ReportPaginationResponse(
+            items=[
+                ReportSummary(
+                    id=report.id,
+                    unit_id=report.unit_id,
+                    semester_id=report.semester_id,
+                    month=report.month,
+                    year=report.year,
+                    status=report.status,
+                    updated_at=report.updated_at,
+                    total_activities=len(report.unit_event_ids) + len(report.internal_events)
+                )
+                for report in reports 
+                if status_filter is not None or report.status != "CHUA_NOP"
+            ],
+            total=total
+        )
 
     @staticmethod
     async def sync_unit_events(report: Report):
@@ -331,11 +354,13 @@ class ReportService:
         unit_id: Optional[PydanticObjectId] = None,
         status_filter: Optional[str] = None
     ):
-        reports = await ReportRepository.get_filtered(
+        # We fetch a large number for export, effectively disabling pagination for excel
+        reports, _ = await ReportRepository.get_filtered(
             month=month,
             year=year,
             unit_id=unit_id,
-            status=status_filter
+            status=status_filter,
+            limit=5000 
         )
         
         data = []

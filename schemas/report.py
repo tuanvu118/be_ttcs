@@ -83,3 +83,7 @@ class ReportDetail(ReportBase):
         if isinstance(v, datetime) and v.tzinfo is None:
             return v.replace(tzinfo=timezone.utc)
         return v
+
+class ReportPaginationResponse(BaseModel):
+    items: List[ReportSummary]
+    total: int

@@ -44,3 +44,7 @@ class UnitEventUpdate(BaseModel):
     description: Optional[str] = None
     point: Optional[Decimal] = None
     listUnitId: Optional[List[PydanticObjectId]] = None
+
+class UnitEventPaginationResponse(BaseModel):
+    items: List[UnitEventResponse]
+    total: int

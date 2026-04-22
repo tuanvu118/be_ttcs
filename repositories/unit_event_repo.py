@@ -11,12 +11,21 @@ class UnitEventRepo:
         return await UnitEvent.find(UnitEvent.deleted_at == None).to_list()
 
     async def list_active_by_semester_id(
-        self, semester_id: PydanticObjectId
-    ) -> List[UnitEvent]:
-        return await UnitEvent.find(
-            UnitEvent.deleted_at == None,
-            UnitEvent.semesterId == semester_id,
-        ).to_list()
+        self, 
+        semester_id: Optional[PydanticObjectId] = None,
+        skip: int = 0,
+        limit: int = 10
+    ) -> (List[UnitEvent], int):
+        query = {
+            "deleted_at": None
+        }
+        if semester_id and semester_id != 'all':
+            query["semesterId"] = semester_id
+            
+        cursor = UnitEvent.find(query)
+        total = await cursor.count()
+        items = await cursor.sort("-created_at").skip(skip).limit(limit).to_list()
+        return items, total
 
     async def list_by_unit_id(self, unit_id: PydanticObjectId) -> List[UnitEvent]:
         """Lấy danh sách unit_events có unit_id trong listUnitId."""

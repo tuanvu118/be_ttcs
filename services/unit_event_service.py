@@ -111,16 +111,19 @@ class UnitEventService:
         return await self._build_event_response(saved)
 
     async def get_all_unit_events_by_semester_id(
-        self, semester_id: Optional[PydanticObjectId | str] = None
-    ) -> List[UnitEventResponse]:
-        if semester_id is None or semester_id == 'all':
-            events = await self.repo.get_all_active()
-            return [await self._build_event_response(event) for event in events]
+        self, 
+        semester_id: Optional[PydanticObjectId | str] = None,
+        skip: int = 0,
+        limit: int = 10
+    ):
+        parsed_semester_id = None
+        if semester_id and semester_id != 'all':
+            parsed_semester_id = self._parse_object_id(semester_id, "semesterId")
+            await self.semester_service.get_semester_by_id(parsed_semester_id)
 
-        parsed_semester_id = self._parse_object_id(semester_id, "semesterId")
-        await self.semester_service.get_semester_by_id(parsed_semester_id)
-        events = await self.repo.list_active_by_semester_id(parsed_semester_id)
-        return [await self._build_event_response(event) for event in events]
+        events, total = await self.repo.list_active_by_semester_id(parsed_semester_id, skip=skip, limit=limit)
+        items = [await self._build_event_response(event) for event in events]
+        return {"items": items, "total": total}
 
     async def get_unit_events_by_unit_id(
         self,

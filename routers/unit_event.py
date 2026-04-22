@@ -5,6 +5,7 @@ from schemas.unit_event import (
     UnitEventResponse,
     UnitEventResponseByUnitId,
     UnitEventUpdate,
+    UnitEventPaginationResponse,
 )
 from schemas.response import BaseResponse
 from security import require_manager, require_staff
@@ -57,12 +58,14 @@ async def Create_Unit_Event(
     
     return await service.create_unit_event(data, current_user.sub)
 
-@router.get("/all", response_model=List[UnitEventResponse], dependencies=[Depends(require_manager)])
+@router.get("/all", response_model=UnitEventPaginationResponse, dependencies=[Depends(require_manager)])
 async def Get_All_Unit_Events_By_Semester(
     semester_id: Optional[PydanticObjectId] = Query(None, alias="semesterId"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1),
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
-) -> List[UnitEventResponse]:
+) -> UnitEventPaginationResponse:
     """
     Lấy danh sách tất cả sự kiện đẩy xuống đơn vị (bao gồm cả HTTT và HTSK) theo kì học
     
@@ -70,7 +73,7 @@ async def Get_All_Unit_Events_By_Semester(
 
     Quyền xem: VPĐ hoặc ADMIN
     """
-    return await service.get_all_unit_events_by_semester_id(semester_id)
+    return await service.get_all_unit_events_by_semester_id(semester_id, skip=skip, limit=limit)
 
 @router.get("/my", response_model=List[UnitEventResponseByUnitId], dependencies=[Depends(require_staff)])
 async def Get_My_Unit_Events_By_Semester(

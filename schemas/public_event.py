@@ -86,3 +86,8 @@ class PublicEventSummary(BaseModel):
         return v
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PublicEventPaginationResponse(BaseModel):
+    items: List[PublicEventRead]
+    total: int

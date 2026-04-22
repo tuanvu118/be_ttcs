@@ -33,20 +33,35 @@ class EventRegistrationService:
 
         for field in event.form_fields:
 
-            if field.required and field.id not in answer_map:
-                app_exception(ErrorCode.MISSING_REQUIRED_FIELD)
+            if field.required and (field.id not in answer_map or not str(answer_map[field.id]).strip()):
+                app_exception(ErrorCode.MISSING_REQUIRED_FIELD, f"Trường '{field.label}' là bắt buộc")
 
             if field.id not in answer_map:
                 continue
 
-            value = answer_map[field.id]
+            value = str(answer_map[field.id])
+            if not value.strip() and not field.required:
+                continue
 
-            if field.field_type in ["select", "radio", "checkbox"]:
+            if field.field_type in ["select", "radio"]:
                 if value not in field.options:
-                    app_exception(ErrorCode.INVALID_OPTION)
+                    app_exception(ErrorCode.INVALID_OPTION, f"Lựa chọn '{value}' không hợp lệ cho trường '{field.label}'")
             
-            if field.field_type == "text" and len(str(value)) > 1000:
-                app_exception(ErrorCode.INVALID_FORM_FIELD, "Câu trả lời không được quá 1000 ký tự")
+            elif field.field_type == "checkbox":
+                selected_options = [opt.strip() for opt in value.split(',')]
+                for opt in selected_options:
+                    if opt not in field.options:
+                        app_exception(ErrorCode.INVALID_OPTION, f"Lựa chọn '{opt}' không hợp lệ cho trường '{field.label}'")
+            
+            elif field.field_type == "number":
+                try:
+                    float(value)
+                except ValueError:
+                    app_exception(ErrorCode.INVALID_FORM_FIELD, f"Trường '{field.label}' phải là một con số")
+            
+            elif field.field_type in ["text", "textarea"]:
+                if len(value) > 1000:
+                    app_exception(ErrorCode.INVALID_FORM_FIELD, f"Câu trả lời cho '{field.label}' không được vượt quá 1000 ký tự")
 
     # -------------------------
     # PUBLIC EVENT REGISTER
@@ -271,14 +286,6 @@ class EventRegistrationService:
         user_id: PydanticObjectId,
     ) -> MyEventDetailResponse:
 
-        event = await PublicEventRepository.get_by_id(event_id)
-
-        if not event:
-            event = await UnitEventRepo().get_by_id(event_id)
-
-        if not event:
-            app_exception(ErrorCode.EVENT_NOT_FOUND)
-
         registration = await EventRegistrationRepository.get_by_event_and_user(
             event_id,
             user_id,
@@ -292,18 +299,8 @@ class EventRegistrationService:
             reg_at = reg_at.replace(tzinfo=timezone.utc)
 
         return MyEventDetailResponse(
-            event_id=event.id,
-            title=event.title,
-            description=event.description,
-            image_url=getattr(event, 'image_url', None),
-            point=getattr(event, 'point', 0),
-            location=getattr(event, 'location', None),
-            max_participants=getattr(event, 'max_participants', 0),
-            registration_start=getattr(event, 'registration_start', None),
-            registration_end=getattr(event, 'registration_end', None),
-            event_start=event.event_start,
-            event_end=event.event_end,
-            form_fields=[f.model_dump() if hasattr(f, 'model_dump') else f for f in getattr(event, 'form_fields', [])],
+            event_id=registration.event_id,
             answers=registration.answers,
             registered_at=reg_at,
+            checked_in=getattr(registration, 'checked_in', False),
         )
