@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 from beanie import PydanticObjectId
 
 from models.report import Report
@@ -60,7 +60,7 @@ class ReportRepository:
         month: Optional[int] = None,
         year: Optional[int] = None,
         unit_id: Optional[PydanticObjectId] = None,
-        status: Optional[str] = None,
+        status: Optional[Any] = None,
         skip: int = 0,
         limit: int = 10
     ) -> (List[Report], int):
@@ -85,6 +85,30 @@ class ReportRepository:
         year: int
     ) -> List[Report]:
         return await ReportRepository.get_filtered(month=month, year=year)
+
+    @staticmethod
+    async def get_stats(
+        month: Optional[int] = None,
+        year: Optional[int] = None,
+        unit_id: Optional[PydanticObjectId] = None,
+    ) -> dict:
+        query = {}
+        if month is not None:
+            query["month"] = month
+        if year is not None:
+            query["year"] = year
+        if unit_id is not None:
+            query["unit_id"] = unit_id
+            
+        pending = await Report.find(query, {"status": "CHO_DUYET"}).count()
+        approved = await Report.find(query, {"status": "DA_DUYET"}).count()
+        rejected = await Report.find(query, {"status": {"$in": ["YEU_CAU_NOP_LAI", "BI_TU_CHOI"]}}).count()
+        
+        return {
+            "pending": pending,
+            "approved": approved,
+            "rejected": rejected
+        }
 
     @staticmethod
     async def get_public_events_by_ids(
