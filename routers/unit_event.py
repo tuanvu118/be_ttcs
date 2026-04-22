@@ -14,6 +14,7 @@ from repositories.unit_event_repo import UnitEventRepo
 from schemas.auth import TokenData
 from typing import List, Optional
 from beanie import PydanticObjectId
+from exceptions import ErrorCode, app_exception
 
 router = APIRouter(prefix="/unit-events", tags=["Unit Events"])
 
@@ -22,6 +23,39 @@ def get_unit_event_service() -> UnitEventService:
 
 import json
 from fastapi import Form
+
+
+def parse_list_unit_ids(raw_value: Optional[str]) -> list[str]:
+    if raw_value is None:
+        return []
+
+    value = raw_value.strip()
+    if not value:
+        return []
+
+    current = value
+    for _ in range(2):
+        try:
+            parsed = json.loads(current)
+        except json.JSONDecodeError:
+            break
+
+        if isinstance(parsed, list):
+            return [str(item).strip() for item in parsed if str(item).strip()]
+
+        if isinstance(parsed, str):
+            current = parsed.strip()
+            continue
+
+        break
+
+    if value and not value.startswith("["):
+        return [value]
+
+    app_exception(
+        ErrorCode.INVALID_FORM_FIELD,
+        extra_detail='listUnitId phai la JSON array hop le, vi du: ["<unit_id>"]',
+    )
 
 @router.post("/", 
 response_model=UnitEventResponse,
@@ -33,6 +67,8 @@ async def Create_Unit_Event(
     description: str = Form(None),
     point: float = Form(0),
     type: str = Form(...),
+    event_start: str = Form(...),
+    event_end: str = Form(...),
     listUnitId: str = Form("[]"),
     semester_id: Optional[str] = Form(None),
     current_user: TokenData = Depends(require_manager),
@@ -42,16 +78,19 @@ async def Create_Unit_Event(
     Tạo sự kiện đẩy xuống đơn vị (HTTT hoặc HTSK) với sự hỗ trợ của Multipart/Form-data.
     """
     from schemas.unit_event import UnitEventCreate
+    from datetime import datetime
     from decimal import Decimal
     
     # Parse listUnitId từ JSON string
-    unit_ids = json.loads(listUnitId)
+    unit_ids = parse_list_unit_ids(listUnitId)
     
     data = UnitEventCreate(
         title=title,
         description=description,
         point=Decimal(str(point)),
         type=type,
+        event_start=datetime.fromisoformat(event_start),
+        event_end=datetime.fromisoformat(event_end),
         listUnitId=unit_ids,
         semesterId=PydanticObjectId(semester_id) if semester_id else None
     )
@@ -109,20 +148,25 @@ async def Update_Unit_Event(
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     point: Optional[float] = Form(None),
+    event_start: Optional[str] = Form(None),
+    event_end: Optional[str] = Form(None),
     listUnitId: Optional[str] = Form(None),
     semester_id: Optional[str] = Form(None),
     _ = Depends(require_manager),
     service: UnitEventService = Depends(get_unit_event_service),
 ) -> BaseResponse:
+    from datetime import datetime
     from decimal import Decimal
     
     update_data = {}
     if title is not None: update_data["title"] = title
     if description is not None: update_data["description"] = description
     if point is not None: update_data["point"] = Decimal(str(point))
+    if event_start is not None: update_data["event_start"] = datetime.fromisoformat(event_start)
+    if event_end is not None: update_data["event_end"] = datetime.fromisoformat(event_end)
     
     if listUnitId:
-        update_data["listUnitId"] = json.loads(listUnitId)
+        update_data["listUnitId"] = parse_list_unit_ids(listUnitId)
     
     if semester_id:
         update_data["semesterId"] = PydanticObjectId(semester_id)

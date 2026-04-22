@@ -28,7 +28,7 @@ async def open_qr_session(
     event_id: PydanticObjectId = Path(...),
     current_user: TokenData = Depends(require_admin_or_manager_global),
 ):
-    return await QRAttendanceService.open_session(
+    return await QRAttendanceService.open_public_session(
         event_id=event_id,
         actor_id=PydanticObjectId(current_user.sub),
         request=request_body,
@@ -44,20 +44,6 @@ async def get_qr_session(
     _: TokenData = Depends(require_admin_or_manager_global),
 ):
     return await QRAttendanceService.get_session(session_id)
-
-
-@router.post(
-    "/sessions/{session_id}/close",
-    response_model=QRSessionRead,
-)
-async def close_qr_session(
-    session_id: str,
-    current_user: TokenData = Depends(require_admin_or_manager_global),
-):
-    return await QRAttendanceService.close_session(
-        session_id=session_id,
-        actor_id=PydanticObjectId(current_user.sub),
-    )
 
 
 @router.post(
@@ -81,8 +67,36 @@ async def scan_qr_code(
     "/events/{event_id}/records",
     response_model=List[AttendanceRead],
 )
-async def list_attendance_records(
+async def list_public_attendance_records(
     event_id: PydanticObjectId = Path(...),
     _: TokenData = Depends(require_admin_or_manager_global),
 ):
-    return await QRAttendanceService.list_attendances(event_id=event_id)
+    return await QRAttendanceService.list_public_attendances(event_id=event_id)
+
+
+@router.post(
+    "/unit-events/{event_id}/sessions",
+    response_model=QRSessionOpenResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def open_unit_event_qr_session(
+    request_body: QRSessionOpenRequest,
+    event_id: PydanticObjectId = Path(...),
+    current_user: TokenData = Depends(require_admin_or_manager_global),
+):
+    return await QRAttendanceService.open_unit_event_session(
+        event_id=event_id,
+        actor_id=PydanticObjectId(current_user.sub),
+        request=request_body,
+    )
+
+
+@router.get(
+    "/unit-events/{event_id}/records",
+    response_model=List[AttendanceRead],
+)
+async def list_unit_event_attendance_records(
+    event_id: PydanticObjectId = Path(...),
+    _: TokenData = Depends(require_admin_or_manager_global),
+):
+    return await QRAttendanceService.list_unit_event_attendances(event_id=event_id)

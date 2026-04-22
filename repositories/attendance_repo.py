@@ -12,24 +12,36 @@ class AttendanceRepository:
     async def get_by_event_and_user(
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
+        event_type: str | None = None,
     ) -> Attendance | None:
-        return await Attendance.find_one(
+        filters = [
             Attendance.event_id == event_id,
             Attendance.user_id == user_id,
-        )
+        ]
+        if event_type is not None:
+            filters.append(Attendance.event_type == event_type)
+        return await Attendance.find_one(*filters)
 
     @staticmethod
     async def exists_by_event_and_user(
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
+        event_type: str | None = None,
     ) -> bool:
-        return await Attendance.find(
+        filters = [
             Attendance.event_id == event_id,
             Attendance.user_id == user_id,
-        ).count() > 0
+        ]
+        if event_type is not None:
+            filters.append(Attendance.event_type == event_type)
+        return await Attendance.find(*filters).count() > 0
 
     @staticmethod
-    async def list_by_event(event_id: PydanticObjectId) -> list[Attendance]:
-        return await Attendance.find(
-            Attendance.event_id == event_id
-        ).sort("-processed_at").to_list()
+    async def list_by_event(
+        event_id: PydanticObjectId,
+        event_type: str | None = None,
+    ) -> list[Attendance]:
+        filters = [Attendance.event_id == event_id]
+        if event_type is not None:
+            filters.append(Attendance.event_type == event_type)
+        return await Attendance.find(*filters).sort("-processed_at").to_list()

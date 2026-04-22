@@ -26,7 +26,10 @@ class Attendance(Document):
     class Settings:
         name = "attendances"
         indexes = [
-            IndexModel([("event_id", ASCENDING), ("user_id", ASCENDING)], unique=True),
+            IndexModel(
+                [("event_type", ASCENDING), ("event_id", ASCENDING), ("user_id", ASCENDING)],
+                unique=True,
+            ),
             IndexModel([("request_id", ASCENDING)], unique=True),
             IndexModel([("session_id", ASCENDING), ("sequence", ASCENDING)]),
         ]

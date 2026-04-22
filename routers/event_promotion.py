@@ -1,9 +1,9 @@
-from typing import List, Optional
-from datetime import datetime, timezone
+from typing import Optional
+from datetime import datetime
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, Header, Query, status, Form, File, UploadFile
 from exceptions import ErrorCode, app_exception
-from security import get_current_user, require_manager, require_staff, require_user
+from security import require_manager, require_staff
 from schemas.auth import TokenData
 from schemas.event_promotion import (
     EventPromotionCreate, 

@@ -55,6 +55,17 @@ class ErrorCode(int, Enum):
     UNIT_NOT_ASSIGNED_TO_EVENT = 126
     REPORT_LOCKED = 127
     EVENT_LOCKED = 128
+    QR_PAYLOAD_INVALID = 129
+    QR_SESSION_NOT_FOUND = 130
+    QR_SESSION_CLOSED = 131
+    QR_PAYLOAD_EXPIRED = 132
+    LOCATION_REQUIRED = 133
+    LOCATION_OUT_OF_RANGE = 134
+    DUPLICATE_CHECKIN = 135
+    CHECKIN_QUEUE_UNAVAILABLE = 136
+    QR_SESSION_TOO_LARGE = 137
+    INVALID_QR_SESSION_TIME = 138
+    USER_NOT_ALLOWED_FOR_EVENT = 139
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
@@ -214,6 +225,50 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.EVENT_LOCKED: {
         "status": status.HTTP_403_FORBIDDEN,
         "message": "Sự kiện đã bị khóa, không thể thực hiện thao tác này",
+    },
+    ErrorCode.QR_PAYLOAD_INVALID: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Ma QR khong hop le",
+    },
+    ErrorCode.QR_SESSION_NOT_FOUND: {
+        "status": status.HTTP_404_NOT_FOUND,
+        "message": "Phien QR khong ton tai hoac da het han",
+    },
+    ErrorCode.QR_SESSION_CLOSED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Phien QR da dong",
+    },
+    ErrorCode.QR_PAYLOAD_EXPIRED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Ma QR da het han",
+    },
+    ErrorCode.LOCATION_REQUIRED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Phien QR yeu cau vi tri check-in",
+    },
+    ErrorCode.LOCATION_OUT_OF_RANGE: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Ban dang o ngoai pham vi cho phep de check-in",
+    },
+    ErrorCode.DUPLICATE_CHECKIN: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Ban da quet check-in cho su kien nay roi",
+    },
+    ErrorCode.CHECKIN_QUEUE_UNAVAILABLE: {
+        "status": status.HTTP_503_SERVICE_UNAVAILABLE,
+        "message": "He thong xep hang check-in tam thoi khong kha dung",
+    },
+    ErrorCode.QR_SESSION_TOO_LARGE: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Phien QR qua dai, vuot qua gioi han cho phep",
+    },
+    ErrorCode.INVALID_QR_SESSION_TIME: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Thoi gian phien QR khong hop le",
+    },
+    ErrorCode.USER_NOT_ALLOWED_FOR_EVENT: {
+        "status": status.HTTP_403_FORBIDDEN,
+        "message": "Ban khong nam trong danh sach duoc phep check-in su kien nay",
     },
 }
 

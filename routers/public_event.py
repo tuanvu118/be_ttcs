@@ -1,11 +1,11 @@
-from typing import List, Optional
+from typing import Optional
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, Form, UploadFile, File, status, HTTPException, Query
 from pydantic import ValidationError
 import json
 from schemas.public_event import PublicEventCreate, PublicEventRead, PublicEventUpdate, PublicEventPaginationResponse
-from security import require_manager, require_user
+from security import require_manager
 from services.public_event_service import PublicEventService
 
 

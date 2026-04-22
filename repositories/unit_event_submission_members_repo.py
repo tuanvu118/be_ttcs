@@ -28,6 +28,34 @@ class UnitEventSubmissionMembersRepo:
             In(UnitEventSubmissionMember.unitEventSubmissionId, unit_event_submission_ids)
         ).to_list()
 
+    async def mark_checked_in_by_submission_ids_and_user(
+        self,
+        unit_event_submission_ids: List[PydanticObjectId],
+        user_id: PydanticObjectId,
+        student_id: str | None = None,
+    ) -> int:
+        if not unit_event_submission_ids:
+            return 0
+
+        members = await self.get_all_by_unit_event_submission_ids(unit_event_submission_ids)
+        updated_count = 0
+        normalized_student_id = str(student_id).strip() if student_id else None
+        for member in members:
+            matched_user = member.userId == user_id
+            matched_student = (
+                normalized_student_id is not None
+                and member.studentId is not None
+                and str(member.studentId).strip() == normalized_student_id
+            )
+            if not (matched_user or matched_student):
+                continue
+            if member.checkIn:
+                continue
+            member.checkIn = True
+            await member.save()
+            updated_count += 1
+        return updated_count
+
     async def delete_all_by_unit_event_submission_id(
         self, unit_event_submission_id: PydanticObjectId
     ) -> None:

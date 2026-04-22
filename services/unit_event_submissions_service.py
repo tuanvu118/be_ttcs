@@ -50,7 +50,7 @@ class UnitEventSubmissionsService:
 
     def _ensure_unit_assigned_to_event(
         self, unit_event: UnitEvent, unit_id: PydanticObjectId
-    ) -> None:
+    ) -> dict[str, PydanticObjectId]:
         """Kiểm tra đơn vị có trong listUnitId của sự kiện."""
         list_unit_id = unit_event.listUnitId or []
         if unit_id not in list_unit_id:
@@ -64,10 +64,10 @@ class UnitEventSubmissionsService:
         )
         list_user_id = []
         for member in members:
-            if member.userId is not None:
-                list_user_id.append(member.userId)
-            elif member.studentId is not None:
+            if member.studentId is not None:
                 list_user_id.append(member.studentId)
+            elif member.userId is not None:
+                list_user_id.append(member.userId)
         return UnitEventSubmissionMemberResponse(
             unitEventId=submission.unitEventId,
             unitId=submission.unitId,
@@ -83,7 +83,7 @@ class UnitEventSubmissionsService:
         student_ids: List[str],
         unit_id: PydanticObjectId,
         semester_id: PydanticObjectId,
-    ) -> None:
+    ) -> dict[str, PydanticObjectId]:
         normalized_student_ids = [str(student_id).strip() for student_id in student_ids if str(student_id).strip()]
         if not normalized_student_ids:
             app_exception(ErrorCode.LIST_USER_ID_IS_REQUIRED)
@@ -114,6 +114,11 @@ class UnitEventSubmissionsService:
                 ErrorCode.USER_NOT_IN_UNIT,
                 extra_detail="Sinh viên không thuộc đơn vị do bạn quản lý",
             )
+
+        return {
+            student_id: user_by_student_id[student_id].id
+            for student_id in normalized_student_ids
+        }
 
     async def create_unit_event_submission(self, data: UnitEventSubmissionCreate, current_user: str) -> UnitEventSubmissionResponse:
         unit_event_id = self._parse_object_id(data.unitEventId, "unitEventId")
@@ -249,7 +254,7 @@ class UnitEventSubmissionsService:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_EXISTS)
         if data.list_MSV is None:
             app_exception(ErrorCode.LIST_USER_ID_IS_REQUIRED)
-        await self._validate_students_belong_to_unit(
+        user_ids_by_student_id = await self._validate_students_belong_to_unit(
             data.list_MSV, unit_id, unit_event.semesterId
         )
         unit_event_submission = UnitEventSubmission(
@@ -265,6 +270,7 @@ class UnitEventSubmissionsService:
             unit_event_submission_member = UnitEventSubmissionMember(
                 unitEventSubmissionId=saved.id,
                 studentId=student_id,
+                userId=user_ids_by_student_id[str(student_id).strip()],
                 checkIn=False,
             )
             await self.unit_event_submission_members_repo.create(unit_event_submission_member)
@@ -323,7 +329,7 @@ class UnitEventSubmissionsService:
         if list_MSV is not None:
             if len(list_MSV) == 0:
                 app_exception(ErrorCode.LIST_USER_ID_IS_REQUIRED)
-            await self._validate_students_belong_to_unit(
+            user_ids_by_student_id = await self._validate_students_belong_to_unit(
                 list_MSV, parsed_unit_id, unit_event.semesterId
             )
             await self.unit_event_submission_members_repo.delete_all_by_unit_event_submission_id(
@@ -334,6 +340,7 @@ class UnitEventSubmissionsService:
                     UnitEventSubmissionMember(
                         unitEventSubmissionId=saved.id,
                         studentId=student_id,
+                        userId=user_ids_by_student_id[str(student_id).strip()],
                         checkIn=False,
                     )
                 )

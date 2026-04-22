@@ -1,5 +1,6 @@
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ASCENDING
 
 from configs.settings import DB_NAME, MONGO_URI
 from models.attendance import Attendance
@@ -20,6 +21,20 @@ from models.users_roles import UserRole
 from models.event_promotion import EventPromotion
 
 client = AsyncIOMotorClient(MONGO_URI)
+
+
+async def _sync_attendance_indexes() -> None:
+    collection = client[DB_NAME][Attendance.Settings.name]
+    index_info = await collection.index_information()
+    legacy_unique_index = "event_id_1_user_id_1"
+    if legacy_unique_index in index_info:
+        await collection.drop_index(legacy_unique_index)
+
+    await collection.create_index(
+        [("event_type", ASCENDING), ("event_id", ASCENDING), ("user_id", ASCENDING)],
+        unique=True,
+        name="event_type_1_event_id_1_user_id_1",
+    )
 
 
 async def init_db():
@@ -44,6 +59,7 @@ async def init_db():
             EventPromotion,
         ],
     )
+    await _sync_attendance_indexes()
 
 
 def get_db():

@@ -1,4 +1,7 @@
-from models.unit_event_submissions import UnitEventSubmission
+from models.unit_event_submissions import (
+    UnitEventSubmission,
+    UnitEventSubmissionStatus,
+)
 from beanie import PydanticObjectId
 from datetime import datetime
 from typing import Optional, List
@@ -32,13 +35,20 @@ class UnitEventSubmissionsRepo:
             UnitEventSubmission.unitEventId == unit_event_id
         ).to_list()
 
+    async def get_all_approved_by_unit_event_id(
+        self, unit_event_id: PydanticObjectId
+    ) -> List[UnitEventSubmission]:
+        return await UnitEventSubmission.find(
+            UnitEventSubmission.unitEventId == unit_event_id,
+            UnitEventSubmission.status == UnitEventSubmissionStatus.APPROVED,
+        ).to_list()
+
     async def get_approved_by_unit_and_date_range(
         self, 
         unit_id: PydanticObjectId,
         start_date: datetime,
         end_date: datetime
     ) -> List[UnitEventSubmission]:
-        from models.unit_event_submissions import UnitEventSubmissionStatus
         return await UnitEventSubmission.find(
             UnitEventSubmission.unitId == unit_id,
             UnitEventSubmission.status == UnitEventSubmissionStatus.APPROVED,
