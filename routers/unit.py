@@ -28,11 +28,22 @@ async def create_unit(
     name: str = Form(...),
     type: str = Form(...),
     introduction: str | None = Form(None),
+    established_year: int | None = Form(None),
+    member_count: int | None = Form(None),
+    email: str | None = Form(None),
     logo: UploadFile | None = None,
+    cover: UploadFile | None = None,
     service: UnitService = Depends(get_unit_service),
 ) -> UnitRead:
-    payload = UnitCreate(name=name, type=type, introduction=introduction)
-    return await service.create_unit(payload, logo)
+    payload = UnitCreate(
+        name=name, 
+        type=type, 
+        introduction=introduction,
+        established_year=established_year,
+        member_count=member_count,
+        email=email
+    )
+    return await service.create_unit(payload, logo, cover)
 
 
 @router.get(
@@ -70,18 +81,29 @@ async def get_unit(
 @router.put(
     "/{unit_id}",
     response_model=UnitRead,
-    dependencies=[Depends(require_admin)],
 )
 async def update_unit(
     unit_id: PydanticObjectId,
-    name: str = Form(...),
-    type: str = Form(...),
+    name: str = Form(None),
+    type: str = Form(None),
     introduction: str | None = Form(None),
+    established_year: int | None = Form(None),
+    member_count: int | None = Form(None),
+    email: str | None = Form(None),
     logo: UploadFile | None = None,
+    cover: UploadFile | None = None,
+    current_user: TokenData = Depends(require_user),
     service: UnitService = Depends(get_unit_service),
 ) -> UnitRead:
-    payload = UnitUpdate(name=name, type=type, introduction=introduction)
-    return await service.update_unit(unit_id, payload, logo)
+    payload = UnitUpdate(
+        name=name, 
+        type=type, 
+        introduction=introduction,
+        established_year=established_year,
+        member_count=member_count,
+        email=email
+    )
+    return await service.update_unit(unit_id, payload, current_user, logo, cover)
 
 
 @router.delete(

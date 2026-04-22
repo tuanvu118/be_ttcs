@@ -102,9 +102,10 @@ async def list_promotions_for_unit(
 )
 async def list_promotions_for_students(
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1)
+    limit: int = Query(10, ge=1),
+    unit_id: Optional[PydanticObjectId] = Query(None)
 ):
-    return await EventPromotionService.get_for_students(skip, limit)
+    return await EventPromotionService.get_for_students(skip, limit, unit_id)
 
 @router.get(
     "/{id}",

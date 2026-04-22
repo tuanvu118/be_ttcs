@@ -50,6 +50,15 @@ class UserUnitRepo:
             In(UserUnit.user_id, user_ids),
         ).to_list()
 
+    async def count_distinct_members(self, unit_id: PydanticObjectId) -> int:
+        """Counts unique active members across all semesters."""
+        memberships = await UserUnit.find(
+            UserUnit.unit_id == unit_id,
+            UserUnit.is_active == True
+        ).to_list()
+        unique_user_ids = {m.user_id for m in memberships}
+        return len(unique_user_ids)
+
     async def deactivate(self, user_unit: UserUnit) -> UserUnit:
         user_unit.is_active = False
         user_unit.left_at = datetime.now(timezone.utc)

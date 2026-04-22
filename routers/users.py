@@ -15,6 +15,7 @@ from schemas.users import (
     UserRead,
     UserResponse,
     UserUpdate,
+    UserEventStatsResponse,
 )
 from security import require_admin_or_manager_global, require_user
 from services.user_service import UserService
@@ -109,6 +110,18 @@ async def read_current_user(
     service: UserService = Depends(get_user_service),
 ) -> UserProfileResponse:
     return await service.get_current_user_profile(current_user)
+
+
+@router.get("/me/stats", response_model=UserEventStatsResponse)
+async def get_my_event_stats(
+    semester_id: PydanticObjectId | None = Query(None),
+    current_user: TokenData = Depends(require_user),
+    service: UserService = Depends(get_user_service),
+) -> UserEventStatsResponse:
+    return await service.get_user_event_stats(
+        PydanticObjectId(current_user.sub),
+        semester_id
+    )
 
 
 @router.get("/{user_id}", response_model=UserProfileResponse, status_code=status.HTTP_200_OK)

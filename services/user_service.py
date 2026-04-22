@@ -15,6 +15,9 @@ from repositories.unit_repo import UnitRepo
 from repositories.user_repo import UserRepo
 from repositories.user_role_repo import UserRoleRepo
 from repositories.user_unit_repo import UserUnitRepo
+from repositories.event_registration_repo import EventRegistrationRepository
+from repositories.public_event_repo import PublicEventRepository
+from repositories.unit_event_repo import UnitEventRepo
 from schemas.auth import TokenData
 from schemas.users import (
     UserCreate,
@@ -23,6 +26,8 @@ from schemas.users import (
     UserRead,
     UserResponse,
     UserUpdate,
+    UserEventStatsResponse,
+    ParticipatedEvent,
 )
 from services.cloudinary_service import upload_image
 
@@ -45,6 +50,9 @@ class UserService:
         self.unit_repo = unit_repo or UnitRepo()
         self.semester_repo = semester_repo or SemesterRepo()
         self.user_unit_repo = user_unit_repo or UserUnitRepo()
+        self.event_reg_repo = EventRegistrationRepository()
+        self.public_event_repo = PublicEventRepository()
+        self.unit_event_repo = UnitEventRepo()
 
     def hash_password(self, password: str) -> str:
         return pwd_context.hash(password)
@@ -217,6 +225,58 @@ class UserService:
             date_of_birth=user.date_of_birth,
             is_active=current_user.is_active,
             roles=current_user.roles,
+        )
+
+    async def get_user_event_stats(
+        self,
+        user_id: PydanticObjectId,
+        semester_id: PydanticObjectId | None = None,
+    ) -> UserEventStatsResponse:
+        registrations = await self.event_reg_repo.get_by_user(user_id)
+        if not registrations:
+            return UserEventStatsResponse(total_points=0, participated_events=[])
+
+        event_ids = [r.event_id for r in registrations]
+        
+        # Fetch both public and unit events
+        public_events = await self.public_event_repo.get_by_ids(event_ids)
+        unit_events = await self.unit_event_repo.get_by_ids(event_ids)
+        
+        event_map = {e.id: e for e in public_events + unit_events}
+        
+        participated_events = []
+        total_points = 0.0
+        
+        for reg in registrations:
+            event = event_map.get(reg.event_id)
+            if not event:
+                continue
+                
+            # Filter by semester if provided
+            event_semester_id = getattr(event, 'semester_id', None)
+            if semester_id and event_semester_id != semester_id:
+                continue
+                
+            is_checked_in = getattr(reg, 'checked_in', False)
+            point_value = float(getattr(event, 'point', 0))
+            
+            participated_events.append(ParticipatedEvent(
+                event_id=event.id,
+                title=event.title,
+                event_start=event.event_start,
+                point=point_value,
+                checked_in=is_checked_in
+            ))
+            
+            if is_checked_in:
+                total_points += point_value
+                
+        # Sort by date descending
+        participated_events.sort(key=lambda x: x.event_start, reverse=True)
+        
+        return UserEventStatsResponse(
+            total_points=total_points,
+            participated_events=participated_events
         )
 
     async def get_user_detail(

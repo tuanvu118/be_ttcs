@@ -83,3 +83,16 @@ class UserListResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+class ParticipatedEvent(BaseModel):
+    event_id: PydanticObjectId
+    title: str
+    event_start: datetime
+    point: float
+    checked_in: bool
+
+
+class UserEventStatsResponse(BaseModel):
+    total_points: float
+    participated_events: List[ParticipatedEvent]

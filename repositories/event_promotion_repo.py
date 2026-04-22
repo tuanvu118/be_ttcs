@@ -54,7 +54,8 @@ class EventPromotionRepository:
     async def get_active_for_students(
         now: datetime,
         skip: int = 0,
-        limit: int = 10
+        limit: int = 10,
+        unit_id: Optional[PydanticObjectId] = None
     ):
         # DA_DUYET and now < time.end + 3 days
         # In MongoDB: time.end >= now - 3 days
@@ -63,6 +64,8 @@ class EventPromotionRepository:
             "status": "DA_DUYET",
             "time.end": {"$gte": threshold}
         }
+        if unit_id:
+            query["unit_id"] = unit_id
         
         cursor = EventPromotion.find(query)
         total = await cursor.count()
