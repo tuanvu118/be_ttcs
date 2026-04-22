@@ -9,6 +9,7 @@ from schemas.report import (
     InternalEventUpdate,
     ReportDetail,
     ReportSummary,
+    ReportPaginationResponse,
 )
 from security import get_current_user, require_manager, require_staff
 from services.report import ReportService
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/reports", tags=["Reports"])
 
 @router.get(
     "/all",
-    response_model=List[ReportSummary],
+    response_model=ReportPaginationResponse,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_manager)],
 )
@@ -26,21 +27,28 @@ async def get_all_reports(
     month: Optional[int] = None,
     year: Optional[int] = None,
     unit_id: Optional[PydanticObjectId] = None,
-    status_filter: Optional[str] = None # 'status' is a reserved word/param in some contexts, using status_filter
+    status_filter: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 10
 ):
-    return await ReportService.get_all_reports(month, year, unit_id, status_filter)
+    return await ReportService.get_all_reports(month, year, unit_id, status_filter, skip, limit)
 
 
 @router.get(
     "/",
-    response_model=List[ReportSummary],
+    response_model=ReportPaginationResponse,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_staff)],
 )
 async def get_reports(
     x_unit_id: PydanticObjectId = Header(..., alias="X-Unit-Id"),
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    status_filter: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 10
 ):
-    return await ReportService.get_reports_by_unit(x_unit_id)
+    return await ReportService.get_reports_by_unit(x_unit_id, month, year, status_filter, skip, limit)
 
 
 @router.get(

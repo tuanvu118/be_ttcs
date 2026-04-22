@@ -46,7 +46,6 @@ async def list_semesters(
     start_date_to: datetime | None = Query(None),
     end_date_from: datetime | None = Query(None),
     end_date_to: datetime | None = Query(None),
-    current_user: TokenData = Depends(require_user),
     service: SemesterService = Depends(get_semester_service),
 ) -> SemesterListResponse:
     return await service.list_semesters(
@@ -67,7 +66,6 @@ async def list_semesters(
     response_model=SemesterRead,
 )
 async def get_current_semester(
-    current_user: TokenData = Depends(require_user),
     service: SemesterService = Depends(get_semester_service),
 ) -> SemesterRead:
     return await service.get_current_semester()
