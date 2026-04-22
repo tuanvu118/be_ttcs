@@ -4,12 +4,24 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, Form, UploadFile, File, status, HTTPException
 from pydantic import ValidationError
 import json
+from bson.errors import InvalidId
+from exceptions import ErrorCode, app_exception
 from schemas.public_event import PublicEventCreate, PublicEventRead, PublicEventUpdate
 from security import require_manager, require_user
 from services.public_event_service import PublicEventService
 
 
 router = APIRouter(prefix="/events", tags=["Public Events"])
+
+
+def parse_optional_object_id(value: Optional[str]) -> Optional[PydanticObjectId]:
+    if value is None or value.strip() == "":
+        return None
+
+    try:
+        return PydanticObjectId(value)
+    except InvalidId:
+        app_exception(ErrorCode.INVALID_ID_FORMAT)
 
 
 @router.post("/", response_model=PublicEventRead)
@@ -46,7 +58,7 @@ async def create_event(
             location=location,
             max_participants=max_participants,
             form_fields=fields_list,
-            semester_id=PydanticObjectId(semester_id) if semester_id else None
+            semester_id=parse_optional_object_id(semester_id),
         )
     except ValidationError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors())
@@ -115,8 +127,9 @@ async def update_event(
     if form_fields:
         update_data["form_fields"] = json.loads(form_fields)
     
-    if semester_id:
-        update_data["semester_id"] = PydanticObjectId(semester_id)
+    parsed_semester_id = parse_optional_object_id(semester_id)
+    if parsed_semester_id:
+        update_data["semester_id"] = parsed_semester_id
         
     try:
         data = PublicEventUpdate(**update_data)

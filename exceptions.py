@@ -44,6 +44,7 @@ class ErrorCode(int, Enum):
     ACTIVE_SEMESTER_NOT_FOUND = 111
     INVALID_SEMESTER_TIME = 112
     INVALID_ID_FORMAT = 113
+    ACTIVE_SEMESTER_REQUIRED_FOR_EVENT = 114
 
     UNIT_EVENT_NOT_FOUND = 120
     INVALID_UNIT_EVENT_TYPE = 121
@@ -53,6 +54,17 @@ class ErrorCode(int, Enum):
     LIST_USER_ID_IS_REQUIRED = 125
     UNIT_NOT_ASSIGNED_TO_EVENT = 126
     REPORT_LOCKED = 127
+    QR_SESSION_NOT_FOUND = 130
+    QR_SESSION_CLOSED = 131
+    QR_PAYLOAD_INVALID = 132
+    QR_PAYLOAD_EXPIRED = 133
+    USER_NOT_ALLOWED_FOR_EVENT = 134
+    DUPLICATE_CHECKIN = 135
+    LOCATION_REQUIRED = 136
+    LOCATION_OUT_OF_RANGE = 137
+    CHECKIN_QUEUE_UNAVAILABLE = 138
+    INVALID_QR_SESSION_TIME = 139
+    QR_SESSION_TOO_LARGE = 140
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
@@ -147,6 +159,10 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
         "status": status.HTTP_400_BAD_REQUEST,
         "message": "ID không đúng định dạng ObjectId",
     },
+    ErrorCode.ACTIVE_SEMESTER_REQUIRED_FOR_EVENT: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Khong the tao su kien khi chua co semester dang hoat dong",
+    },
 
     ErrorCode.UNIT_EVENT_NOT_FOUND: {
         "status": status.HTTP_404_NOT_FOUND,
@@ -204,6 +220,50 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.REPORT_LOCKED: {
         "status": status.HTTP_403_FORBIDDEN,
         "message": "Báo cáo đã khóa hoặc đã quá hạn nộp, không thể chỉnh sửa",
+    },
+    ErrorCode.QR_SESSION_NOT_FOUND: {
+        "status": status.HTTP_404_NOT_FOUND,
+        "message": "QR session khong ton tai hoac da het han",
+    },
+    ErrorCode.QR_SESSION_CLOSED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "QR session da dong hoac khong con hieu luc",
+    },
+    ErrorCode.QR_PAYLOAD_INVALID: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "QR payload khong hop le",
+    },
+    ErrorCode.QR_PAYLOAD_EXPIRED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "QR da het hieu luc hoac chua toi thoi gian quet",
+    },
+    ErrorCode.USER_NOT_ALLOWED_FOR_EVENT: {
+        "status": status.HTTP_403_FORBIDDEN,
+        "message": "Ban khong nam trong danh sach duoc phep check-in su kien nay",
+    },
+    ErrorCode.DUPLICATE_CHECKIN: {
+        "status": status.HTTP_409_CONFLICT,
+        "message": "Ban da quet QR cho su kien nay hoac yeu cau dang duoc xu ly",
+    },
+    ErrorCode.LOCATION_REQUIRED: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Session nay yeu cau vi tri hop le de check-in",
+    },
+    ErrorCode.LOCATION_OUT_OF_RANGE: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Vi tri check-in nam ngoai pham vi cho phep",
+    },
+    ErrorCode.CHECKIN_QUEUE_UNAVAILABLE: {
+        "status": status.HTTP_503_SERVICE_UNAVAILABLE,
+        "message": "He thong hang doi dang tam thoi khong kha dung",
+    },
+    ErrorCode.INVALID_QR_SESSION_TIME: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Khoang thoi gian QR session khong hop le",
+    },
+    ErrorCode.QR_SESSION_TOO_LARGE: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "QR session tao ra qua nhieu time window",
     },
 }
 

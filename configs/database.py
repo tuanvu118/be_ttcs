@@ -2,6 +2,8 @@ from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from configs.settings import DB_NAME, MONGO_URI
+from models.attendance import Attendance
+from models.audit_log import AuditLog
 from models.event_registration import EventRegistration
 from models.public_event import PublicEvent
 from models.refresh_tokens import RefreshTokenSession
@@ -23,6 +25,8 @@ async def init_db():
     await init_beanie(
         database=client[DB_NAME],
         document_models=[
+            Attendance,
+            AuditLog,
             User,
             Role,
             UserRole,

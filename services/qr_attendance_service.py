@@ -1,0 +1,471 @@
+import base64
+import json
+import math
+import secrets
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from beanie import PydanticObjectId
+from pydantic import ValidationError
+
+from configs.rabbitmq import publish_checkin_message
+from configs.redis_config import get_redis
+from configs.settings import (
+    QR_DEFAULT_WINDOW_SECONDS,
+    QR_DUPLICATE_PENDING_TTL_SECONDS,
+    QR_MAX_WINDOWS_PER_SESSION,
+    QR_SESSION_TTL_BUFFER_SECONDS,
+)
+from exceptions import ErrorCode, app_exception
+from models.audit_log import AuditLog
+from repositories.attendance_repo import AttendanceRepository
+from repositories.audit_log_repo import AuditLogRepository
+from repositories.event_registration_repo import EventRegistrationRepository
+from repositories.public_event_repo import PublicEventRepository
+from schemas.attendance import (
+    AttendanceRead,
+    CheckInMessage,
+    QRPayloadData,
+    QRScanQueuedResponse,
+    QRScanRequest,
+    QRSessionOpenRequest,
+    QRSessionOpenResponse,
+    QRSessionRead,
+    QRWindowResponse,
+)
+
+
+class QRAttendanceService:
+    @staticmethod
+    def _utc_now() -> datetime:
+        return datetime.now(timezone.utc)
+
+    @staticmethod
+    def _ensure_utc(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    @staticmethod
+    def _iso(value: datetime) -> str:
+        return QRAttendanceService._ensure_utc(value).isoformat()
+
+    @staticmethod
+    def _parse_datetime(value: str) -> datetime:
+        parsed = datetime.fromisoformat(value)
+        return QRAttendanceService._ensure_utc(parsed)
+
+    @staticmethod
+    def _encode_qr_value(payload_json: str) -> str:
+        encoded = base64.urlsafe_b64encode(payload_json.encode("utf-8")).decode("ascii")
+        return encoded.rstrip("=")
+
+    @staticmethod
+    def _decode_qr_value(qr_value: str) -> str:
+        padding = "=" * (-len(qr_value) % 4)
+        return base64.urlsafe_b64decode(f"{qr_value}{padding}").decode("utf-8")
+
+    @staticmethod
+    def _session_key(session_id: str) -> str:
+        return f"qr_session:{session_id}:meta"
+
+    @staticmethod
+    def _participant_key(session_id: str) -> str:
+        return f"qr_session:{session_id}:participants"
+
+    @staticmethod
+    def _payload_key(session_id: str, sequence: int) -> str:
+        return f"qr_session:{session_id}:payload:{sequence}"
+
+    @staticmethod
+    def _event_session_key(event_id: PydanticObjectId) -> str:
+        return f"qr_event_active_session:{event_id}"
+
+    @staticmethod
+    def _duplicate_key(user_id: PydanticObjectId, event_id: PydanticObjectId) -> str:
+        return f"scan:{user_id}:{event_id}"
+
+    @staticmethod
+    def _validate_location_configuration(request: QRSessionOpenRequest) -> None:
+        location_fields = [request.latitude, request.longitude, request.radius_meters]
+        any_location = any(value is not None for value in location_fields)
+        all_location = all(value is not None for value in location_fields)
+        if any_location and not all_location:
+            app_exception(
+                ErrorCode.QR_PAYLOAD_INVALID,
+                extra_detail="latitude, longitude, radius_meters phai duoc cung cap day du",
+            )
+
+    @staticmethod
+    def _build_windows(
+        session_id: str,
+        event_id: PydanticObjectId,
+        session_start: datetime,
+        session_end: datetime,
+        window_seconds: int,
+    ) -> list[QRWindowResponse]:
+        windows: list[QRWindowResponse] = []
+        cursor = session_start
+        sequence = 1
+
+        while cursor < session_end:
+            if len(windows) >= QR_MAX_WINDOWS_PER_SESSION:
+                app_exception(ErrorCode.QR_SESSION_TOO_LARGE)
+
+            valid_until = min(cursor + timedelta(seconds=window_seconds), session_end)
+            payload = QRPayloadData(
+                sessionId=session_id,
+                eventId=str(event_id),
+                sequence=sequence,
+                validFrom=cursor,
+                validUntil=valid_until,
+                secret=secrets.token_urlsafe(24),
+            )
+            payload_json = payload.model_dump_json()
+            qr_value = QRAttendanceService._encode_qr_value(payload_json)
+            windows.append(
+                QRWindowResponse(
+                    sequence=sequence,
+                    valid_from=cursor,
+                    valid_until=valid_until,
+                    qr_value=qr_value,
+                )
+            )
+            cursor = valid_until
+            sequence += 1
+
+        return windows
+
+    @staticmethod
+    async def _get_event_or_raise(event_id: PydanticObjectId):
+        event = await PublicEventRepository.get_by_id(event_id)
+        if not event:
+            app_exception(ErrorCode.EVENT_NOT_FOUND)
+        return event
+
+    @staticmethod
+    def _validate_session_time_range(
+        event,
+        session_start: datetime,
+        session_end: datetime,
+    ) -> None:
+        event_start = QRAttendanceService._ensure_utc(event.event_start)
+        event_end = QRAttendanceService._ensure_utc(event.event_end)
+
+        if session_start >= session_end:
+            app_exception(ErrorCode.INVALID_QR_SESSION_TIME)
+        if session_start < event_start:
+            app_exception(
+                ErrorCode.INVALID_QR_SESSION_TIME,
+                extra_detail="session_start phai nam trong khoang thoi gian event",
+            )
+        if session_end > event_end:
+            app_exception(
+                ErrorCode.INVALID_QR_SESSION_TIME,
+                extra_detail="session_end khong duoc vuot qua event_end",
+            )
+
+    @staticmethod
+    async def open_session(
+        event_id: PydanticObjectId,
+        actor_id: PydanticObjectId,
+        request: QRSessionOpenRequest,
+    ) -> QRSessionOpenResponse:
+        event = await QRAttendanceService._get_event_or_raise(event_id)
+        QRAttendanceService._validate_location_configuration(request)
+
+        now = QRAttendanceService._utc_now()
+        session_start = QRAttendanceService._ensure_utc(request.session_start or now)
+        session_end = QRAttendanceService._ensure_utc(request.session_end or event.event_end)
+        window_seconds = request.window_seconds or QR_DEFAULT_WINDOW_SECONDS
+
+        QRAttendanceService._validate_session_time_range(event, session_start, session_end)
+
+        participant_ids = await EventRegistrationRepository.list_user_ids_by_event(event_id)
+        session_id = uuid.uuid4().hex
+        windows = QRAttendanceService._build_windows(
+            session_id=session_id,
+            event_id=event_id,
+            session_start=session_start,
+            session_end=session_end,
+            window_seconds=window_seconds,
+        )
+
+        session_ttl = max(
+            1,
+            int((session_end - now).total_seconds()) + QR_SESSION_TTL_BUFFER_SECONDS,
+        )
+        redis = get_redis()
+        session_key = QRAttendanceService._session_key(session_id)
+        participant_key = QRAttendanceService._participant_key(session_id)
+
+        session_meta = {
+            "session_id": session_id,
+            "event_id": str(event_id),
+            "event_type": "public",
+            "session_start": QRAttendanceService._iso(session_start),
+            "session_end": QRAttendanceService._iso(session_end),
+            "window_seconds": window_seconds,
+            "participant_count": len(participant_ids),
+            "latitude": request.latitude,
+            "longitude": request.longitude,
+            "radius_meters": request.radius_meters,
+            "location_required": request.radius_meters is not None,
+            "status": "open",
+            "created_by": str(actor_id),
+            "created_at": QRAttendanceService._iso(now),
+            "window_count": len(windows),
+        }
+
+        await redis.set(session_key, json.dumps(session_meta), ex=session_ttl)
+        await redis.set(
+            QRAttendanceService._event_session_key(event_id),
+            session_id,
+            ex=session_ttl,
+        )
+
+        if participant_ids:
+            await redis.sadd(participant_key, *[str(participant_id) for participant_id in participant_ids])
+        await redis.expire(participant_key, session_ttl)
+
+        for window in windows:
+            payload_ttl = max(
+                1,
+                int((window.valid_until - now).total_seconds()) + QR_SESSION_TTL_BUFFER_SECONDS,
+            )
+            stored_payload_json = QRAttendanceService._decode_qr_value(window.qr_value)
+            await redis.set(
+                QRAttendanceService._payload_key(session_id, window.sequence),
+                stored_payload_json,
+                ex=payload_ttl,
+            )
+
+        await AuditLogRepository.create(
+            AuditLog(
+                action="qr_session.created",
+                actor_id=actor_id,
+                event_id=event_id,
+                target_type="qr_session",
+                target_id=session_id,
+                metadata={
+                    "participant_count": len(participant_ids),
+                    "window_seconds": window_seconds,
+                    "window_count": len(windows),
+                },
+            )
+        )
+
+        return QRSessionOpenResponse(
+            session_id=session_id,
+            event_id=event_id,
+            event_type="public",
+            session_start=session_start,
+            session_end=session_end,
+            window_seconds=window_seconds,
+            participant_count=len(participant_ids),
+            location_required=request.radius_meters is not None,
+            windows=windows,
+        )
+
+    @staticmethod
+    async def get_session(session_id: str) -> QRSessionRead:
+        redis = get_redis()
+        payload = await redis.get(QRAttendanceService._session_key(session_id))
+        if not payload:
+            app_exception(ErrorCode.QR_SESSION_NOT_FOUND)
+
+        session_meta = json.loads(payload)
+        return QRSessionRead(
+            session_id=session_meta["session_id"],
+            event_id=PydanticObjectId(session_meta["event_id"]),
+            event_type=session_meta["event_type"],
+            session_start=QRAttendanceService._parse_datetime(session_meta["session_start"]),
+            session_end=QRAttendanceService._parse_datetime(session_meta["session_end"]),
+            window_seconds=int(session_meta["window_seconds"]),
+            participant_count=int(session_meta["participant_count"]),
+            location_required=bool(session_meta["location_required"]),
+            latitude=session_meta.get("latitude"),
+            longitude=session_meta.get("longitude"),
+            radius_meters=session_meta.get("radius_meters"),
+            status=session_meta["status"],
+        )
+
+    @staticmethod
+    async def close_session(
+        session_id: str,
+        actor_id: PydanticObjectId,
+    ) -> QRSessionRead:
+        redis = get_redis()
+        session_key = QRAttendanceService._session_key(session_id)
+        payload = await redis.get(session_key)
+        if not payload:
+            app_exception(ErrorCode.QR_SESSION_NOT_FOUND)
+
+        session_meta = json.loads(payload)
+        session_meta["status"] = "closed"
+        ttl = await redis.ttl(session_key)
+        await redis.set(
+            session_key,
+            json.dumps(session_meta),
+            ex=ttl if ttl and ttl > 0 else QR_SESSION_TTL_BUFFER_SECONDS,
+        )
+
+        await AuditLogRepository.create(
+            AuditLog(
+                action="qr_session.closed",
+                actor_id=actor_id,
+                event_id=PydanticObjectId(session_meta["event_id"]),
+                target_type="qr_session",
+                target_id=session_id,
+            )
+        )
+
+        return await QRAttendanceService.get_session(session_id)
+
+    @staticmethod
+    def _calculate_distance_meters(
+        origin_lat: float,
+        origin_lng: float,
+        target_lat: float,
+        target_lng: float,
+    ) -> float:
+        earth_radius_m = 6371000
+        delta_lat = math.radians(target_lat - origin_lat)
+        delta_lng = math.radians(target_lng - origin_lng)
+        a = (
+            math.sin(delta_lat / 2) ** 2
+            + math.cos(math.radians(origin_lat))
+            * math.cos(math.radians(target_lat))
+            * math.sin(delta_lng / 2) ** 2
+        )
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return earth_radius_m * c
+
+    @staticmethod
+    async def submit_scan(
+        current_user_id: PydanticObjectId,
+        request: QRScanRequest,
+        source_ip: str | None = None,
+    ) -> QRScanQueuedResponse:
+        try:
+            payload_json = QRAttendanceService._decode_qr_value(request.qr_value)
+            raw_payload: dict[str, Any] = json.loads(payload_json)
+            payload = QRPayloadData.model_validate(raw_payload)
+        except (json.JSONDecodeError, ValidationError, TypeError, ValueError, UnicodeDecodeError):
+            app_exception(ErrorCode.QR_PAYLOAD_INVALID)
+
+        redis = get_redis()
+        session_key = QRAttendanceService._session_key(payload.sessionId)
+        session_raw = await redis.get(session_key)
+        if not session_raw:
+            app_exception(ErrorCode.QR_SESSION_NOT_FOUND)
+
+        session_meta = json.loads(session_raw)
+        if session_meta.get("status") != "open":
+            app_exception(ErrorCode.QR_SESSION_CLOSED)
+
+        if session_meta.get("event_id") != payload.eventId:
+            app_exception(ErrorCode.QR_PAYLOAD_INVALID)
+
+        payload_key = QRAttendanceService._payload_key(payload.sessionId, payload.sequence)
+        stored_payload_raw = await redis.get(payload_key)
+        if not stored_payload_raw:
+            app_exception(ErrorCode.QR_PAYLOAD_EXPIRED)
+
+        try:
+            stored_payload = QRPayloadData.model_validate(json.loads(stored_payload_raw))
+        except (json.JSONDecodeError, ValidationError, TypeError):
+            app_exception(ErrorCode.QR_PAYLOAD_INVALID)
+
+        if (
+            stored_payload.secret != payload.secret
+            or stored_payload.sessionId != payload.sessionId
+            or stored_payload.eventId != payload.eventId
+            or stored_payload.sequence != payload.sequence
+        ):
+            app_exception(ErrorCode.QR_PAYLOAD_INVALID)
+
+        now = QRAttendanceService._utc_now()
+        if now < stored_payload.validFrom or now > stored_payload.validUntil:
+            app_exception(ErrorCode.QR_PAYLOAD_EXPIRED)
+
+        try:
+            event_id = PydanticObjectId(payload.eventId)
+        except (TypeError, ValueError):
+            app_exception(ErrorCode.QR_PAYLOAD_INVALID)
+        participant_key = QRAttendanceService._participant_key(payload.sessionId)
+        is_allowed = await redis.sismember(participant_key, str(current_user_id))
+        if not is_allowed:
+            app_exception(ErrorCode.USER_NOT_ALLOWED_FOR_EVENT)
+
+        distance_meters: float | None = None
+        if session_meta.get("location_required"):
+            if request.latitude is None or request.longitude is None:
+                app_exception(ErrorCode.LOCATION_REQUIRED)
+
+            distance_meters = QRAttendanceService._calculate_distance_meters(
+                origin_lat=float(session_meta["latitude"]),
+                origin_lng=float(session_meta["longitude"]),
+                target_lat=request.latitude,
+                target_lng=request.longitude,
+            )
+            if distance_meters > float(session_meta["radius_meters"]):
+                app_exception(ErrorCode.LOCATION_OUT_OF_RANGE)
+
+        duplicate_key = QRAttendanceService._duplicate_key(current_user_id, event_id)
+        request_id = uuid.uuid4().hex
+        duplicate_marker = await redis.set(
+            duplicate_key,
+            f"pending:{request_id}",
+            ex=QR_DUPLICATE_PENDING_TTL_SECONDS,
+            nx=True,
+        )
+        if not duplicate_marker:
+            app_exception(ErrorCode.DUPLICATE_CHECKIN)
+
+        queued_at = QRAttendanceService._utc_now()
+        message = CheckInMessage(
+            request_id=request_id,
+            session_id=payload.sessionId,
+            event_id=str(event_id),
+            event_type=session_meta["event_type"],
+            user_id=str(current_user_id),
+            sequence=payload.sequence,
+            valid_from=stored_payload.validFrom,
+            valid_until=stored_payload.validUntil,
+            scanned_at=queued_at,
+            latitude=request.latitude,
+            longitude=request.longitude,
+            distance_meters=distance_meters,
+            duplicate_key=duplicate_key,
+            participant_key=participant_key,
+            payload_key=payload_key,
+            session_key=session_key,
+            source_ip=source_ip,
+            metadata={
+                "location_required": session_meta.get("location_required", False),
+            },
+        )
+
+        try:
+            await publish_checkin_message(
+                message.model_dump(mode="json"),
+                message_id=request_id,
+            )
+        except Exception:
+            await redis.delete(duplicate_key)
+            app_exception(ErrorCode.CHECKIN_QUEUE_UNAVAILABLE)
+
+        return QRScanQueuedResponse(
+            request_id=request_id,
+            session_id=payload.sessionId,
+            event_id=event_id,
+            queued_at=queued_at,
+        )
+
+    @staticmethod
+    async def list_attendances(event_id: PydanticObjectId) -> list[AttendanceRead]:
+        await QRAttendanceService._get_event_or_raise(event_id)
+        attendances = await AttendanceRepository.list_by_event(event_id)
+        return [AttendanceRead.model_validate(attendance) for attendance in attendances]
