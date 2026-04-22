@@ -136,6 +136,8 @@ class ReportService:
             limit=limit
         )
 
+        stats = await ReportRepository.get_stats(month=month, year=year, unit_id=unit_id)
+
         return ReportPaginationResponse(
             items=[
                 ReportSummary(
@@ -150,7 +152,8 @@ class ReportService:
                 )
                 for report in reports
             ],
-            total=total
+            total=total,
+            **stats
         )
 
     @staticmethod
@@ -166,14 +169,21 @@ class ReportService:
         if month is None and year is None and unit_id is None and status_filter is None:
             month, year = ReportService._get_default_month_year()
         
+        # If status_filter is None, we default to excluding "CHUA_NOP" (Drafts)
+        repo_status = status_filter
+        if repo_status is None:
+            repo_status = {"$ne": "CHUA_NOP"}
+
         reports, total = await ReportRepository.get_filtered(
             month=month,
             year=year,
             unit_id=unit_id,
-            status=status_filter,
+            status=repo_status,
             skip=skip,
             limit=limit
         )
+
+        stats = await ReportRepository.get_stats(month=month, year=year, unit_id=unit_id)
 
         return ReportPaginationResponse(
             items=[
@@ -187,10 +197,10 @@ class ReportService:
                     updated_at=report.updated_at,
                     total_activities=len(report.unit_event_ids) + len(report.internal_events)
                 )
-                for report in reports 
-                if status_filter is not None or report.status != "CHUA_NOP"
+                for report in reports
             ],
-            total=total
+            total=total,
+            **stats
         )
 
     @staticmethod

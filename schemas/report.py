@@ -87,3 +87,6 @@ class ReportDetail(ReportBase):
 class ReportPaginationResponse(BaseModel):
     items: List[ReportSummary]
     total: int
+    pending: int = 0
+    approved: int = 0
+    rejected: int = 0
