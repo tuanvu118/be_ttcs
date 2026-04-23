@@ -45,6 +45,82 @@ JWT_SECRET = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY", "CHANGE_ME_SECRE
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
+
+def get_bool_env(key: str, default: bool) -> bool:
+    raw_value = os.getenv(key)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD") or None
+
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
+RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", "5672"))
+RABBITMQ_USERNAME = os.getenv("RABBITMQ_USERNAME", "guest")
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "guest")
+RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
+RABBITMQ_URL = os.getenv(
+    "RABBITMQ_URL",
+    f"amqp://{RABBITMQ_USERNAME}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST.lstrip('/')}",
+)
+RABBITMQ_CHECKIN_EXCHANGE = os.getenv(
+    "RABBITMQ_CHECKIN_EXCHANGE",
+    "attendance.events",
+)
+RABBITMQ_CHECKIN_QUEUE = os.getenv(
+    "RABBITMQ_CHECKIN_QUEUE",
+    "attendance.checkin.queue",
+)
+RABBITMQ_CHECKIN_ROUTING_KEY = os.getenv(
+    "RABBITMQ_CHECKIN_ROUTING_KEY",
+    "attendance.checkin.requested",
+)
+RABBITMQ_CHECKIN_RETRY_EXCHANGE = os.getenv(
+    "RABBITMQ_CHECKIN_RETRY_EXCHANGE",
+    "attendance.retry",
+)
+RABBITMQ_CHECKIN_RETRY_QUEUE = os.getenv(
+    "RABBITMQ_CHECKIN_RETRY_QUEUE",
+    "attendance.checkin.retry.queue",
+)
+RABBITMQ_CHECKIN_RETRY_ROUTING_KEY = os.getenv(
+    "RABBITMQ_CHECKIN_RETRY_ROUTING_KEY",
+    "attendance.checkin.retry",
+)
+RABBITMQ_CHECKIN_DEAD_LETTER_EXCHANGE = os.getenv(
+    "RABBITMQ_CHECKIN_DEAD_LETTER_EXCHANGE",
+    "attendance.dead",
+)
+RABBITMQ_CHECKIN_DEAD_LETTER_QUEUE = os.getenv(
+    "RABBITMQ_CHECKIN_DEAD_LETTER_QUEUE",
+    "attendance.checkin.dlq",
+)
+RABBITMQ_CHECKIN_DEAD_LETTER_ROUTING_KEY = os.getenv(
+    "RABBITMQ_CHECKIN_DEAD_LETTER_ROUTING_KEY",
+    "attendance.checkin.failed",
+)
+RABBITMQ_PREFETCH_COUNT = int(os.getenv("RABBITMQ_PREFETCH_COUNT", "20"))
+RABBITMQ_CHECKIN_MAX_RETRIES = int(os.getenv("RABBITMQ_CHECKIN_MAX_RETRIES", "3"))
+RABBITMQ_CHECKIN_RETRY_DELAY_MS = int(
+    os.getenv("RABBITMQ_CHECKIN_RETRY_DELAY_MS", "5000")
+)
+
+QR_SESSION_TTL_BUFFER_SECONDS = int(os.getenv("QR_SESSION_TTL_BUFFER_SECONDS", "300"))
+QR_DUPLICATE_PENDING_TTL_SECONDS = int(
+    os.getenv("QR_DUPLICATE_PENDING_TTL_SECONDS", "120")
+)
+QR_DUPLICATE_COMPLETED_TTL_SECONDS = int(
+    os.getenv("QR_DUPLICATE_COMPLETED_TTL_SECONDS", str(24 * 60 * 60))
+)
+QR_CHECKIN_LOCK_TTL_SECONDS = int(os.getenv("QR_CHECKIN_LOCK_TTL_SECONDS", "30"))
+QR_DEFAULT_WINDOW_SECONDS = int(os.getenv("QR_DEFAULT_WINDOW_SECONDS", "30"))
+QR_MAX_WINDOWS_PER_SESSION = int(os.getenv("QR_MAX_WINDOWS_PER_SESSION", "720"))
+ENABLE_APP_SCHEDULER = get_bool_env("ENABLE_APP_SCHEDULER", True)
+
 CLOUDINARY_NAME = os.getenv("CLOUDINARY_NAME")
 CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")

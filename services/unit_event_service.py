@@ -1,4 +1,3 @@
-from fastapi import UploadFile
 from typing import List, Optional
 from repositories.unit_event_repo import UnitEventRepo
 from schemas.unit_event import UnitEventCreate, UnitEventResponse, UnitEventUpdate, UnitEventResponseByUnitId
@@ -11,7 +10,7 @@ from repositories.semester_repo import SemesterRepo
 from repositories.unit_repo import UnitRepo
 from repositories.user_role_repo import UserRoleRepo
 from services.semester_service import SemesterService
-from schemas.unit import UnitBase, UnitRead
+from schemas.unit import UnitRead
 
 class UnitEventService:
     def __init__(
@@ -33,6 +32,20 @@ class UnitEventService:
                 ErrorCode.INVALID_ID_FORMAT,
                 extra_detail=f"{field_name} không đúng định dạng",
             )
+
+    @staticmethod
+    def _ensure_utc(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    @staticmethod
+    def _validate_event_time(event_start: datetime, event_end: datetime) -> tuple[datetime, datetime]:
+        normalized_start = UnitEventService._ensure_utc(event_start)
+        normalized_end = UnitEventService._ensure_utc(event_end)
+        if normalized_start >= normalized_end:
+            app_exception(ErrorCode.INVALID_EVENT_TIME)
+        return normalized_start, normalized_end
 
     async def _ensure_units_exist(
         self, unit_ids: List[PydanticObjectId | str]
@@ -68,6 +81,8 @@ class UnitEventService:
             description=event.description,
             point=event.point,
             type=event.type,
+            event_start=event.event_start,
+            event_end=event.event_end,
             semesterId=event.semesterId,
             created_at=event.created_at,
             created_by=event.created_by,
@@ -81,6 +96,8 @@ class UnitEventService:
             description=event.description,
             point=event.point,
             type=event.type,
+            event_start=event.event_start,
+            event_end=event.event_end,
             semesterId=event.semesterId,
             created_at=event.created_at,
         )
@@ -96,12 +113,18 @@ class UnitEventService:
             app_exception(ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE)
 
         unique_unit_ids = await self._ensure_units_exist(payload.listUnitId)
+        event_start, event_end = self._validate_event_time(
+            payload.event_start,
+            payload.event_end,
+        )
 
         unit_event = UnitEvent(
             title=payload.title,
             description=payload.description,
             point=payload.point,
             type=payload.type,
+            event_start=event_start,
+            event_end=event_end,
             semesterId=payload.semesterId or (await self.semester_service.get_current_semester()).id,
             listUnitId=unique_unit_ids,
             created_at=datetime.now(timezone.utc),
@@ -180,6 +203,18 @@ class UnitEventService:
 
         update_data = data.model_dump(exclude_unset=True)
         list_unit_id = update_data.pop("listUnitId", None)
+
+        merged_event_start = update_data.get("event_start", event.event_start)
+        merged_event_end = update_data.get("event_end", event.event_end)
+        if merged_event_start is None or merged_event_end is None:
+            app_exception(
+                ErrorCode.INVALID_EVENT_TIME,
+                extra_detail="unit_event phai co event_start va event_end",
+            )
+        (
+            update_data["event_start"],
+            update_data["event_end"],
+        ) = self._validate_event_time(merged_event_start, merged_event_end)
 
         for field, value in update_data.items():
             setattr(event, field, value)

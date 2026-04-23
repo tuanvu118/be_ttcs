@@ -5,7 +5,7 @@ from beanie import PydanticObjectId
 from fastapi import UploadFile
 
 from exceptions import ErrorCode, app_exception
-from schemas.public_event import PublicEventCreate, PublicEventUpdate
+from schemas.public_event import PublicEventCreate, PublicEventRead, PublicEventUpdate
 from repositories.public_event_repo import PublicEventRepository
 from repositories.semester_repo import SemesterRepo
 from repositories.event_registration_repo import EventRegistrationRepository
@@ -87,10 +87,11 @@ class PublicEventService:
         else:
             semester = await SemesterRepo().get_active()
             if not semester:
-                raise ValueError("No active semester")
+                app_exception(ErrorCode.ACTIVE_SEMESTER_REQUIRED_FOR_EVENT)
             payload["semester_id"] = semester.id
 
-        return await PublicEventRepository.create(payload)
+        created_event = await PublicEventRepository.create(payload)
+        return await PublicEventService._to_public_event_read(created_event)
 
     @staticmethod
     async def _add_participant_count(event) -> dict:
@@ -100,13 +101,18 @@ class PublicEventService:
         return dump
 
     @staticmethod
+    async def _to_public_event_read(event) -> PublicEventRead:
+        enriched_event = await PublicEventService._add_participant_count(event)
+        return PublicEventRead.model_validate(enriched_event)
+
+    @staticmethod
     async def get_events(
         semester_id: Optional[PydanticObjectId] = None,
         skip: int = 0,
         limit: int = 10
     ):
         events, total = await PublicEventRepository.get_all(semester_id=semester_id, skip=skip, limit=limit)
-        items = [await PublicEventService._add_participant_count(e) for e in events]
+        items = [await PublicEventService._to_public_event_read(e) for e in events]
         return {"items": items, "total": total}
 
     @staticmethod
@@ -140,7 +146,7 @@ class PublicEventService:
             skip=skip,
             limit=limit
         )
-        items = [await PublicEventService._add_participant_count(e) for e in events]
+        items = [await PublicEventService._to_public_event_read(e) for e in events]
         return {"items": items, "total": total}
 
     @staticmethod
@@ -149,7 +155,7 @@ class PublicEventService:
         if not event:
              app_exception(ErrorCode.EVENT_NOT_FOUND)
              
-        return await PublicEventService._add_participant_count(event)
+        return await PublicEventService._to_public_event_read(event)
 
     @staticmethod
     async def update_event(event_id: PydanticObjectId, data: PublicEventUpdate, image: Optional[UploadFile] = None):
@@ -200,8 +206,8 @@ class PublicEventService:
         if data.form_fields is not None:
             PublicEventService._validate_form_fields(data.form_fields)
 
-        return await PublicEventRepository.update(event_id, update_data)
-
+        updated_event = await PublicEventRepository.update(event_id, update_data)
+        return await PublicEventService._to_public_event_read(updated_event)
 
     @staticmethod
     async def delete_event(event_id: PydanticObjectId):
