@@ -84,16 +84,27 @@ class UnitService:
     def _paginate(items: List, skip: int, limit: int) -> List:
         return items[skip : skip + limit]
 
+    async def _enrich_unit_member_count(self, unit_read: UnitRead) -> UnitRead:
+        count = await self.user_unit_repo.count_distinct_members(PydanticObjectId(unit_read.id))
+        unit_read.member_count = count
+        return unit_read
+
     async def create_unit(
             self, 
             payload: UnitCreate,
-            logo_file: UploadFile | None = None) -> UnitRead:
-        logo_url =None
+            logo_file: UploadFile | None = None,
+            cover_file: UploadFile | None = None) -> UnitRead:
+        logo_url = None
+        cover_url = None
         if logo_file:
             logo_url, _ = upload_image(logo_file)
+        if cover_file:
+            cover_url, _ = upload_image(cover_file)
+            
         unit = Unit(
             name=payload.name,
             logo=logo_url,
+            cover_url=cover_url,
             introduction=payload.introduction,
             type=payload.type,
         )
@@ -104,7 +115,8 @@ class UnitService:
         unit = await self.repo.get_by_id(unit_id)
         if not unit:
             app_exception(ErrorCode.UNIT_NOT_FOUND)
-        return UnitRead.model_validate(unit)
+        unit_read = UnitRead.model_validate(unit)
+        return await self._enrich_unit_member_count(unit_read)
 
     async def list_units(
         self,
@@ -135,22 +147,32 @@ class UnitService:
          self,
          unit_id: PydanticObjectId, 
          payload: UnitUpdate,
-         logo_file: UploadFile | None = None
+         current_user: TokenData,
+         logo_file: UploadFile | None = None,
+         cover_file: UploadFile | None = None
     ) -> UnitRead:
+        self._ensure_member_management_permission(current_user, unit_id)
+        
         unit = await self.repo.get_by_id(unit_id)
         if not unit:
             app_exception(ErrorCode.UNIT_NOT_FOUND)
 
         update_data = payload.model_dump(exclude_unset=True)
         for field, value in update_data.items():
-            setattr(unit, field, value)
+            if value is not None:
+                setattr(unit, field, value)
 
         if logo_file:
             logo_url, _ = upload_image(logo_file)
             unit.logo = logo_url
 
+        if cover_file:
+            cover_url, _ = upload_image(cover_file)
+            unit.cover_url = cover_url
+
         saved = await self.repo.update(unit)
-        return UnitRead.model_validate(saved)
+        unit_read = UnitRead.model_validate(saved)
+        return await self._enrich_unit_member_count(unit_read)
 
     async def delete_unit(self, unit_id: PydanticObjectId) -> None:
         unit = await self.repo.get_by_id(unit_id)

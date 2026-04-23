@@ -1,3 +1,4 @@
+from typing import Tuple
 from typing import List, Optional, Any
 from beanie import PydanticObjectId
 
@@ -38,7 +39,7 @@ class ReportRepository:
         unit_id: PydanticObjectId,
         skip: int = 0,
         limit: int = 10
-    ) -> (List[Report], int):
+    ) -> (Tuple[List[Report], int]):
         cursor = Report.find({
             "unit_id": unit_id
         })
@@ -63,7 +64,7 @@ class ReportRepository:
         status: Optional[Any] = None,
         skip: int = 0,
         limit: int = 10
-    ) -> (List[Report], int):
+    ) -> (Tuple[List[Report], int]):
         query = {}
         if month is not None:
             query["month"] = month

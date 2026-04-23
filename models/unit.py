@@ -11,10 +11,14 @@ class UnitType(str, Enum):
 
 
 class Unit(Document):
-    name: str
+    name: Optional[str] = None
     logo: Optional[str] = None
+    cover_url: Optional[str] = None
     introduction: Optional[str] = None
-    type: UnitType = UnitType.CLB
+    type: Optional[UnitType] = UnitType.CLB
+    established_year: Optional[int] = None
+    email: Optional[str] = None
+    member_count: Optional[int] = 0
 
     class Settings:
         name = "units"

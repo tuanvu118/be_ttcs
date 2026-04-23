@@ -65,9 +65,9 @@ class EventPromotionService:
         return {"items": items, "total": total}
 
     @staticmethod
-    async def get_for_students(skip: int = 0, limit: int = 10):
+    async def get_for_students(skip: int = 0, limit: int = 10, unit_id: Optional[PydanticObjectId] = None):
         now = datetime.now(timezone.utc)
-        items, total = await EventPromotionRepository.get_active_for_students(now, skip, limit)
+        items, total = await EventPromotionRepository.get_active_for_students(now, skip, limit, unit_id)
         return {"items": items, "total": total}
 
     @staticmethod
