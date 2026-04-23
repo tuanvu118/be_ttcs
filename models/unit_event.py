@@ -23,6 +23,8 @@ class UnitEvent(Document):
     type: UnitEventEnum
     event_start: Optional[datetime] = None
     event_end: Optional[datetime] = None
+    registration_start: Optional[datetime] = None
+    registration_end: Optional[datetime] = None
     semesterId: PydanticObjectId
     listUnitId: List[PydanticObjectId] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.now)

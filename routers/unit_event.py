@@ -69,6 +69,8 @@ async def Create_Unit_Event(
     type: str = Form(...),
     event_start: str = Form(...),
     event_end: str = Form(...),
+    registration_start: Optional[str] = Form(None),
+    registration_end: Optional[str] = Form(None),
     listUnitId: str = Form("[]"),
     semester_id: Optional[str] = Form(None),
     current_user: TokenData = Depends(require_manager),
@@ -91,6 +93,8 @@ async def Create_Unit_Event(
         type=type,
         event_start=datetime.fromisoformat(event_start),
         event_end=datetime.fromisoformat(event_end),
+        registration_start=datetime.fromisoformat(registration_start) if registration_start else None,
+        registration_end=datetime.fromisoformat(registration_end) if registration_end else None,
         listUnitId=unit_ids,
         semesterId=PydanticObjectId(semester_id) if semester_id else None
     )
@@ -150,6 +154,8 @@ async def Update_Unit_Event(
     point: Optional[float] = Form(None),
     event_start: Optional[str] = Form(None),
     event_end: Optional[str] = Form(None),
+    registration_start: Optional[str] = Form(None),
+    registration_end: Optional[str] = Form(None),
     listUnitId: Optional[str] = Form(None),
     semester_id: Optional[str] = Form(None),
     _ = Depends(require_manager),
@@ -164,6 +170,14 @@ async def Update_Unit_Event(
     if point is not None: update_data["point"] = Decimal(str(point))
     if event_start is not None: update_data["event_start"] = datetime.fromisoformat(event_start)
     if event_end is not None: update_data["event_end"] = datetime.fromisoformat(event_end)
+    if registration_start is not None:
+        update_data["registration_start"] = (
+            datetime.fromisoformat(registration_start) if registration_start else None
+        )
+    if registration_end is not None:
+        update_data["registration_end"] = (
+            datetime.fromisoformat(registration_end) if registration_end else None
+        )
     
     if listUnitId:
         update_data["listUnitId"] = parse_list_unit_ids(listUnitId)

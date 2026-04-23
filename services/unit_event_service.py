@@ -47,6 +47,19 @@ class UnitEventService:
             app_exception(ErrorCode.INVALID_EVENT_TIME)
         return normalized_start, normalized_end
 
+    @staticmethod
+    def _validate_registration_time(
+        registration_start: datetime, registration_end: datetime
+    ) -> tuple[datetime, datetime]:
+        normalized_start = UnitEventService._ensure_utc(registration_start)
+        normalized_end = UnitEventService._ensure_utc(registration_end)
+        if normalized_start >= normalized_end:
+            app_exception(
+                ErrorCode.INVALID_REGISTRATION_TIME,
+                extra_detail="registration_start phải nhỏ hơn registration_end",
+            )
+        return normalized_start, normalized_end
+
     async def _ensure_units_exist(
         self, unit_ids: List[PydanticObjectId | str]
     ) -> List[PydanticObjectId]:
@@ -83,6 +96,8 @@ class UnitEventService:
             type=event.type,
             event_start=event.event_start,
             event_end=event.event_end,
+            registration_start=event.registration_start,
+            registration_end=event.registration_end,
             semesterId=event.semesterId,
             created_at=event.created_at,
             created_by=event.created_by,
@@ -98,6 +113,8 @@ class UnitEventService:
             type=event.type,
             event_start=event.event_start,
             event_end=event.event_end,
+            registration_start=event.registration_start,
+            registration_end=event.registration_end,
             semesterId=event.semesterId,
             created_at=event.created_at,
         )
@@ -117,6 +134,21 @@ class UnitEventService:
             payload.event_start,
             payload.event_end,
         )
+        registration_start = payload.registration_start
+        registration_end = payload.registration_end
+        if payload.type == UnitEventEnum.HTSK:
+            if registration_start is not None and registration_end is not None:
+                registration_start, registration_end = self._validate_registration_time(
+                    registration_start, registration_end
+                )
+            elif registration_start is not None or registration_end is not None:
+                app_exception(
+                    ErrorCode.INVALID_REGISTRATION_TIME,
+                    extra_detail="Cần truyền đủ registration_start và registration_end cho HTSK hoặc để null cả hai",
+                )
+        else:
+            registration_start = None
+            registration_end = None
 
         unit_event = UnitEvent(
             title=payload.title,
@@ -125,6 +157,8 @@ class UnitEventService:
             type=payload.type,
             event_start=event_start,
             event_end=event_end,
+            registration_start=registration_start,
+            registration_end=registration_end,
             semesterId=payload.semesterId or (await self.semester_service.get_current_semester()).id,
             listUnitId=unique_unit_ids,
             created_at=datetime.now(timezone.utc),
@@ -215,6 +249,29 @@ class UnitEventService:
             update_data["event_start"],
             update_data["event_end"],
         ) = self._validate_event_time(merged_event_start, merged_event_end)
+
+        if event.type == UnitEventEnum.HTSK:
+            merged_registration_start = update_data.get(
+                "registration_start", event.registration_start
+            )
+            merged_registration_end = update_data.get(
+                "registration_end", event.registration_end
+            )
+            if merged_registration_start is not None and merged_registration_end is not None:
+                (
+                    update_data["registration_start"],
+                    update_data["registration_end"],
+                ) = self._validate_registration_time(
+                    merged_registration_start, merged_registration_end
+                )
+            elif merged_registration_start is not None or merged_registration_end is not None:
+                app_exception(
+                    ErrorCode.INVALID_REGISTRATION_TIME,
+                    extra_detail="Cần truyền đủ registration_start và registration_end cho HTSK hoặc để null cả hai",
+                )
+        else:
+            update_data["registration_start"] = None
+            update_data["registration_end"] = None
 
         for field, value in update_data.items():
             setattr(event, field, value)

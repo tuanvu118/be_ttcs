@@ -20,7 +20,7 @@ from models.unit_event_submission_members import UnitEventSubmissionMember
 from exceptions import ErrorCode, app_exception
 from models.unit_event import UnitEventEnum
 from beanie import PydanticObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from schemas.unit import UnitBase
 from typing import List
 from schemas.users import UserRead
@@ -48,6 +48,16 @@ class UnitEventSubmissionsService:
                 extra_detail=f"{field_name} không đúng định dạng",
             )
 
+    @staticmethod
+    def _ensure_utc(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    @staticmethod
+    def _utc_now() -> datetime:
+        return datetime.now(timezone.utc)
+
     def _ensure_unit_assigned_to_event(
         self, unit_event: UnitEvent, unit_id: PydanticObjectId
     ) -> dict[str, PydanticObjectId]:
@@ -55,6 +65,22 @@ class UnitEventSubmissionsService:
         list_unit_id = unit_event.listUnitId or []
         if unit_id not in list_unit_id:
             app_exception(ErrorCode.UNIT_NOT_ASSIGNED_TO_EVENT)
+
+    def _ensure_htsk_submission_open(self, unit_event: UnitEvent) -> None:
+        if unit_event.type != UnitEventEnum.HTSK:
+            return
+
+        if unit_event.registration_start is None or unit_event.registration_end is None:
+            app_exception(
+                ErrorCode.UNIT_EVENT_SUBMISSION_CLOSED,
+                extra_detail="Sự kiện HTSK chưa cấu hình thời gian đăng ký",
+            )
+
+        now = self._utc_now()
+        registration_start = self._ensure_utc(unit_event.registration_start)
+        registration_end = self._ensure_utc(unit_event.registration_end)
+        if now < registration_start or now >= registration_end:
+            app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_CLOSED)
 
     async def _build_submission_member_response(
         self, submission: UnitEventSubmission
@@ -137,7 +163,7 @@ class UnitEventSubmissionsService:
             unitId=unit_id,
             content=data.content,
             evidenceUrl=data.evidenceUrl,
-            submittedAt=datetime.now(),
+            submittedAt=self._utc_now(),
         )
         saved = await self.repo.create(unit_event_submission)
         return UnitEventSubmissionResponse.model_validate(saved)
@@ -247,6 +273,7 @@ class UnitEventSubmissionsService:
             app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
         if unit_event.type != UnitEventEnum.HTSK:
             app_exception(ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE)
+        self._ensure_htsk_submission_open(unit_event)
         unit_id = self._parse_object_id(x_unit_id, "x_unit_id")
         self._ensure_unit_assigned_to_event(unit_event, unit_id)
         existing_submission = await self.repo.get_by_unit_event_id_and_unit_id(unit_event_id, unit_id)
@@ -262,7 +289,7 @@ class UnitEventSubmissionsService:
             unitId=unit_id,
             content=data.content,
             evidenceUrl=getattr(data, "evidenceUrl", None) or "",
-            submittedAt=datetime.now(),
+            submittedAt=self._utc_now(),
         )
         saved = await self.repo.create(unit_event_submission)
 
@@ -286,6 +313,8 @@ class UnitEventSubmissionsService:
         unit_event = await UnitEvent.get(parsed_unit_event_id)
         if not unit_event:
             app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        if unit_event.type == UnitEventEnum.HTSK:
+            self._ensure_htsk_submission_open(unit_event)
         self._ensure_unit_assigned_to_event(unit_event, parsed_unit_id)
         submission = await self.repo.get_by_unit_event_id_and_unit_id(parsed_unit_event_id, parsed_unit_id)
         if not submission:
@@ -323,7 +352,7 @@ class UnitEventSubmissionsService:
 
         if submission.status == UnitEventSubmissionStatus.REJECTED:
             submission.status = UnitEventSubmissionStatus.PENDING
-        submission.submittedAt = datetime.now()
+        submission.submittedAt = self._utc_now()
         saved = await self.repo.update(submission)
 
         if list_MSV is not None:

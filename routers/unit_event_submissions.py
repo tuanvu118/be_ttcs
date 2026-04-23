@@ -115,6 +115,8 @@ async def create_unit_event_submission_member(
     Danh sách thành viên: List[str] Mã sinh viên
 
     Quyền: Staff đơn vị
+
+    Chỉ tạo được khi sự kiện đã được bắt đầu đăng kí và chưa kết thúc đăng kí
     """
     return await service.create_unit_event_submission_member(data, x_unit_id)
 
@@ -141,6 +143,8 @@ async def update_unit_event_submission_member(
 ) -> UnitEventSubmissionMemberResponse:
     """
     Sửa phản hồi HTSK theo unit_event_id và X-Unit-Id của đơn vị mình.
+
+    Chỉ sửa được khi sự kiện đã được bắt đầu đăng kí và chưa kết thúc đăng kí
     """
     return await service.update_unit_event_submission_member(unit_event_id, x_unit_id, data)
 
