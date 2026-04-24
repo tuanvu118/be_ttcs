@@ -67,6 +67,7 @@ async def Create_Unit_Event(
     description: str = Form(None),
     point: float = Form(0),
     type: str = Form(...),
+    is_student_registration: bool = Form(False),
     event_start: str = Form(...),
     event_end: str = Form(...),
     registration_start: Optional[str] = Form(None),
@@ -78,6 +79,9 @@ async def Create_Unit_Event(
 ) -> UnitEventResponse:
     """
     Tạo sự kiện đẩy xuống đơn vị (HTTT hoặc HTSK) với sự hỗ trợ của Multipart/Form-data.
+    
+    Với HTSK, bắt buộc phải điền thêm is_student_registration
+    Với HTTT, không cần điền is_student_registration
     """
     from schemas.unit_event import UnitEventCreate
     from datetime import datetime

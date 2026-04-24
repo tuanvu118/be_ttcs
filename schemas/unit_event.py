@@ -26,7 +26,7 @@ class UnitEventCreate(BaseModel):
     registration_end: Optional[datetime] = None
     semesterId: Optional[PydanticObjectId] = None
     listUnitId: List[PydanticObjectId] = Field(default_factory=list)
-
+    is_student_registration: bool = Field(default=False)
     @field_validator(
         "event_start",
         "event_end",
@@ -50,6 +50,7 @@ class UnitEventResponse(BaseModel):
     event_end: Optional[datetime] = None
     registration_start: Optional[datetime] = None
     registration_end: Optional[datetime] = None
+    is_student_registration: bool = Field(default=False)
     semesterId: PydanticObjectId
     created_at: datetime
     created_by: PydanticObjectId

@@ -289,6 +289,7 @@ class UnitEventSubmissionsService:
             unitId=unit_id,
             content=data.content,
             evidenceUrl=getattr(data, "evidenceUrl", None) or "",
+            status=UnitEventSubmissionStatus.APPROVED,
             submittedAt=self._utc_now(),
         )
         saved = await self.repo.create(unit_event_submission)

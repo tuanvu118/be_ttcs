@@ -117,6 +117,8 @@ async def create_unit_event_submission_member(
     Quyền: Staff đơn vị
 
     Chỉ tạo được khi sự kiện đã được bắt đầu đăng kí và chưa kết thúc đăng kí
+
+    Trạng thái sau khi tạo là APPROVED
     """
     return await service.create_unit_event_submission_member(data, x_unit_id)
 

@@ -37,7 +37,7 @@ class UnitEventSubmissionStatusUpdate(BaseModel):
 class UnitEventSubmissionMemberCreate(BaseModel):
     unitEventId: PydanticObjectId
     unitId: PydanticObjectId
-    content: str
+    content: str    
     list_MSV: List[str] | None = Field(
         default=None,
         validation_alias=AliasChoices(
