@@ -13,6 +13,10 @@ from schemas.unit_event_submissions import (
     UnitEventSubmissionMemberResponse,
     UnitEventSubmissionWithUnitResponse,
     UnitEventSubmissionHTSKListItemResponse,
+    HTSKStudentOverviewResponse,
+    StudentRegistrationInfo,
+    HTSKStudentRegisterRequest,
+    HTSKStudentRegisterResponse,
 )
 from models.unit_event_submissions import UnitEventSubmission, UnitEventSubmissionStatus
 from models.unit_event import UnitEvent
@@ -24,6 +28,7 @@ from datetime import datetime, timezone
 from schemas.unit import UnitBase
 from typing import List
 from schemas.users import UserRead
+from schemas.response import BaseResponse
 
 class UnitEventSubmissionsService:
     def __init__(
@@ -81,6 +86,14 @@ class UnitEventSubmissionsService:
         registration_end = self._ensure_utc(unit_event.registration_end)
         if now < registration_start or now >= registration_end:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_CLOSED)
+
+    def _is_htsk_submission_open(self, unit_event: UnitEvent) -> bool:
+        if unit_event.registration_start is None or unit_event.registration_end is None:
+            return False
+        now = self._utc_now()
+        registration_start = self._ensure_utc(unit_event.registration_start)
+        registration_end = self._ensure_utc(unit_event.registration_end)
+        return registration_start <= now < registration_end
 
     async def _build_submission_member_response(
         self, submission: UnitEventSubmission
@@ -441,3 +454,231 @@ class UnitEventSubmissionsService:
                 )
             )
         return result
+
+    async def get_htsk_student_registration_overview(
+        self,
+        unit_event_id: PydanticObjectId | str,
+        unit_id: PydanticObjectId | str,
+        current_user_id: PydanticObjectId | str,
+    ) -> HTSKStudentOverviewResponse:
+        parsed_unit_event_id = self._parse_object_id(unit_event_id, "unit_event_id")
+        parsed_unit_id = self._parse_object_id(unit_id, "unit_id")
+        parsed_current_user_id = self._parse_object_id(current_user_id, "current_user_id")
+
+        unit_event = await UnitEvent.get(parsed_unit_event_id)
+        if not unit_event:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        if unit_event.type != UnitEventEnum.HTSK:
+            app_exception(ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE)
+        if not unit_event.is_student_registration:
+            app_exception(
+                ErrorCode.INVALID_OPTION,
+                extra_detail="Sự kiện này không mở đăng ký cho sinh viên",
+            )
+        self._ensure_unit_assigned_to_event(unit_event, parsed_unit_id)
+
+        membership = await self.user_unit_repo.get_active(
+            parsed_current_user_id, parsed_unit_id, unit_event.semesterId
+        )
+        if not membership:
+            app_exception(ErrorCode.USER_NOT_IN_UNIT)
+
+        submission = await self.repo.get_by_unit_event_id_and_unit_id(
+            parsed_unit_event_id, parsed_unit_id
+        )
+        if not submission:
+            app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
+
+        unit = await self.unit_repo.get_by_id(parsed_unit_id)
+        if not unit:
+            app_exception(ErrorCode.UNIT_NOT_FOUND)
+
+        user = await self.user_repo.get_by_id(parsed_current_user_id)
+        if not user:
+            app_exception(ErrorCode.USER_NOT_FOUND)
+
+        slot_limit = unit_event.limit_student_registration_in_one_unit
+        slot_used = await self.unit_event_submission_members_repo.count_by_unit_event_submission_id(
+            submission.id
+        )
+        slot_remaining = max(slot_limit - slot_used, 0)
+
+        existing_by_user = await self.unit_event_submission_members_repo.get_by_submission_and_user(
+            submission.id, parsed_current_user_id
+        )
+        existing_by_student = None
+        if not existing_by_user and user.student_id:
+            existing_by_student = await self.unit_event_submission_members_repo.get_by_submission_and_student(
+                submission.id, str(user.student_id).strip()
+            )
+        existing_member = existing_by_user or existing_by_student
+        is_registered = existing_member is not None
+
+        is_registration_open = self._is_htsk_submission_open(unit_event)
+        can_register = (
+            is_registration_open
+            and submission.status == UnitEventSubmissionStatus.WAITING
+            and slot_remaining > 0
+            and not is_registered
+        )
+
+        return HTSKStudentOverviewResponse(
+            unit_event_id=unit_event.id,
+            title=unit_event.title,
+            description=unit_event.description,
+            event_start=unit_event.event_start,
+            event_end=unit_event.event_end,
+            registration_start=unit_event.registration_start,
+            registration_end=unit_event.registration_end,
+            unit_id=parsed_unit_id,
+            unit_name=unit.name,
+            is_student_registration=unit_event.is_student_registration,
+            submission_id=submission.id,
+            submission_status=submission.status,
+            slot_limit=slot_limit,
+            slot_used=slot_used,
+            slot_remaining=slot_remaining,
+            is_registration_open=is_registration_open,
+            can_register=can_register,
+            my_registration=StudentRegistrationInfo(
+                is_registered=is_registered,
+                member_id=existing_member.id if existing_member else None,
+                check_in=existing_member.checkIn if existing_member else None,
+            ),
+        )
+
+    async def register_htsk_student(
+        self,
+        data: HTSKStudentRegisterRequest,
+        current_user_id: PydanticObjectId | str,
+    ) -> HTSKStudentRegisterResponse:
+        parsed_unit_event_id = self._parse_object_id(data.unit_event_id, "unit_event_id")
+        parsed_unit_id = self._parse_object_id(data.unit_id, "unit_id")
+        parsed_current_user_id = self._parse_object_id(current_user_id, "current_user_id")
+
+        unit_event = await UnitEvent.get(parsed_unit_event_id)
+        if not unit_event:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        if unit_event.type != UnitEventEnum.HTSK:
+            app_exception(ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE)
+        if not unit_event.is_student_registration:
+            app_exception(
+                ErrorCode.INVALID_OPTION,
+                extra_detail="Sự kiện này không mở đăng ký cho sinh viên",
+            )
+        self._ensure_htsk_submission_open(unit_event)
+        self._ensure_unit_assigned_to_event(unit_event, parsed_unit_id)
+
+        membership = await self.user_unit_repo.get_active(
+            parsed_current_user_id, parsed_unit_id, unit_event.semesterId
+        )
+        if not membership:
+            app_exception(ErrorCode.USER_NOT_IN_UNIT)
+
+        submission = await self.repo.get_by_unit_event_id_and_unit_id(
+            parsed_unit_event_id, parsed_unit_id
+        )
+        if not submission:
+            app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
+        if submission.status != UnitEventSubmissionStatus.WAITING:
+            app_exception(
+                ErrorCode.INVALID_OPTION,
+                extra_detail="Đơn vị không ở trạng thái chờ đăng ký sinh viên",
+            )
+
+        user = await self.user_repo.get_by_id(parsed_current_user_id)
+        if not user:
+            app_exception(ErrorCode.USER_NOT_FOUND)
+
+        existing_by_user = await self.unit_event_submission_members_repo.get_by_submission_and_user(
+            submission.id, parsed_current_user_id
+        )
+        existing_by_student = None
+        normalized_student_id = str(user.student_id).strip() if user.student_id else None
+        if not existing_by_user and normalized_student_id:
+            existing_by_student = await self.unit_event_submission_members_repo.get_by_submission_and_student(
+                submission.id, normalized_student_id
+            )
+        if existing_by_user or existing_by_student:
+            app_exception(ErrorCode.ALREADY_REGISTERED)
+
+        slot_limit = unit_event.limit_student_registration_in_one_unit
+        slot_used = await self.unit_event_submission_members_repo.count_by_unit_event_submission_id(
+            submission.id
+        )
+        if slot_used >= slot_limit:
+            app_exception(ErrorCode.EVENT_FULL)
+
+        created_member = await self.unit_event_submission_members_repo.create(
+            UnitEventSubmissionMember(
+                unitEventSubmissionId=submission.id,
+                userId=parsed_current_user_id,
+                studentId=normalized_student_id,
+                checkIn=False,
+            )
+        )
+
+        updated_slot_used = slot_used + 1
+        return HTSKStudentRegisterResponse(
+            member_id=created_member.id,
+            unit_event_id=parsed_unit_event_id,
+            submission_id=submission.id,
+            slot_used=updated_slot_used,
+            slot_remaining=max(slot_limit - updated_slot_used, 0),
+            registered_at=self._utc_now(),
+        )
+
+    async def cancel_htsk_student_registration(
+        self,
+        data: HTSKStudentRegisterRequest,
+        current_user_id: PydanticObjectId | str,
+    ) -> BaseResponse:
+        parsed_unit_event_id = self._parse_object_id(data.unit_event_id, "unit_event_id")
+        parsed_unit_id = self._parse_object_id(data.unit_id, "unit_id")
+        parsed_current_user_id = self._parse_object_id(current_user_id, "current_user_id")
+
+        unit_event = await UnitEvent.get(parsed_unit_event_id)
+        if not unit_event:
+            app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        if unit_event.type != UnitEventEnum.HTSK:
+            app_exception(ErrorCode.INVALID_UNIT_EVENT_TYPE_VALUE)
+        if not unit_event.is_student_registration:
+            app_exception(
+                ErrorCode.INVALID_OPTION,
+                extra_detail="Sự kiện này không mở đăng ký cho sinh viên",
+            )
+        self._ensure_unit_assigned_to_event(unit_event, parsed_unit_id)
+
+        membership = await self.user_unit_repo.get_active(
+            parsed_current_user_id, parsed_unit_id, unit_event.semesterId
+        )
+        if not membership:
+            app_exception(ErrorCode.USER_NOT_IN_UNIT)
+
+        submission = await self.repo.get_by_unit_event_id_and_unit_id(
+            parsed_unit_event_id, parsed_unit_id
+        )
+        if not submission:
+            app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
+        if submission.status != UnitEventSubmissionStatus.WAITING:
+            app_exception(
+                ErrorCode.INVALID_OPTION,
+                extra_detail="Chỉ được hủy khi đơn vị đang ở trạng thái WAITING",
+            )
+
+        user = await self.user_repo.get_by_id(parsed_current_user_id)
+        if not user:
+            app_exception(ErrorCode.USER_NOT_FOUND)
+
+        existing_member = await self.unit_event_submission_members_repo.get_by_submission_and_user(
+            submission.id, parsed_current_user_id
+        )
+        if not existing_member and user.student_id:
+            existing_member = await self.unit_event_submission_members_repo.get_by_submission_and_student(
+                submission.id, str(user.student_id).strip()
+            )
+        if not existing_member:
+            app_exception(ErrorCode.REGISTRATION_NOT_FOUND)
+
+        await existing_member.delete()
+        return BaseResponse(message="Hủy đăng ký tham gia HTSK thành công")

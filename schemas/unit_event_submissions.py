@@ -106,3 +106,44 @@ class UnitEventSubmissionHTSKListItemResponse(BaseModel):
     unit_name: str
     checkIn: bool
 
+
+class StudentRegistrationInfo(BaseModel):
+    is_registered: bool
+    member_id: PydanticObjectId | None = None
+    check_in: bool | None = None
+
+
+class HTSKStudentOverviewResponse(BaseModel):
+    unit_event_id: PydanticObjectId
+    title: str
+    description: str | None = None
+    event_start: datetime | None = None
+    event_end: datetime | None = None
+    registration_start: datetime | None = None
+    registration_end: datetime | None = None
+    unit_id: PydanticObjectId
+    unit_name: str
+    is_student_registration: bool
+    submission_id: PydanticObjectId
+    submission_status: UnitEventSubmissionStatus
+    slot_limit: int
+    slot_used: int
+    slot_remaining: int
+    is_registration_open: bool
+    can_register: bool
+    my_registration: StudentRegistrationInfo
+
+
+class HTSKStudentRegisterRequest(BaseModel):
+    unit_event_id: PydanticObjectId
+    unit_id: PydanticObjectId
+
+
+class HTSKStudentRegisterResponse(BaseModel):
+    member_id: PydanticObjectId
+    unit_event_id: PydanticObjectId
+    submission_id: PydanticObjectId
+    slot_used: int
+    slot_remaining: int
+    registered_at: datetime
+

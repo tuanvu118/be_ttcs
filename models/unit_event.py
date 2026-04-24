@@ -26,6 +26,7 @@ class UnitEvent(Document):
     registration_start: Optional[datetime] = None
     registration_end: Optional[datetime] = None
     is_student_registration: bool = Field(default=False)
+    limit_student_registration_in_one_unit: int = Field(default=10000)
     semesterId: PydanticObjectId
     listUnitId: List[PydanticObjectId] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.now)

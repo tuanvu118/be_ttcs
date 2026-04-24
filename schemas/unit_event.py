@@ -27,6 +27,7 @@ class UnitEventCreate(BaseModel):
     semesterId: Optional[PydanticObjectId] = None
     listUnitId: List[PydanticObjectId] = Field(default_factory=list)
     is_student_registration: bool = Field(default=False)
+    limit_student_registration_in_one_unit: int = Field(default=10000)
     @field_validator(
         "event_start",
         "event_end",
@@ -51,6 +52,7 @@ class UnitEventResponse(BaseModel):
     registration_start: Optional[datetime] = None
     registration_end: Optional[datetime] = None
     is_student_registration: bool = Field(default=False)
+    limit_student_registration_in_one_unit: int = Field(default=10000)
     semesterId: PydanticObjectId
     created_at: datetime
     created_by: PydanticObjectId
@@ -83,6 +85,8 @@ class UnitEventResponseByUnitId(BaseModel):
     registration_start: Optional[datetime] = None
     registration_end: Optional[datetime] = None
     semesterId: PydanticObjectId
+    is_student_registration: bool = Field(default=False)
+    limit_student_registration_in_one_unit: int = Field(default=10000)
     created_at: datetime
 
     @field_validator(
@@ -109,7 +113,8 @@ class UnitEventUpdate(BaseModel):
     registration_start: Optional[datetime] = None
     registration_end: Optional[datetime] = None
     listUnitId: Optional[List[PydanticObjectId]] = None
-
+    is_student_registration: Optional[bool] = None
+    limit_student_registration_in_one_unit: Optional[int] = None
     @field_validator(
         "event_start",
         "event_end",

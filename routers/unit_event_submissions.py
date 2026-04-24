@@ -8,16 +8,20 @@ from schemas.unit_event_submissions import (
     UnitEventSubmissionMemberResponse,
     UnitEventSubmissionWithUnitResponse,
     UnitEventSubmissionHTSKListItemResponse,
+    HTSKStudentOverviewResponse,
+    HTSKStudentRegisterRequest,
+    HTSKStudentRegisterResponse,
 )
 from typing import List
 from beanie import PydanticObjectId
 from schemas.auth import TokenData
-from security import require_manager, require_staff
+from security import require_manager, require_staff, require_user
 from fastapi import Depends, Header, status
 from schemas.unit_event_submissions import UnitEventSubmissionCreate
 from services.unit_event_submissions_service import UnitEventSubmissionsService
 from repositories.unit_event_submissions_repo import UnitEventSubmissionsRepo
 from repositories.unit_event_submission_members_repo import UnitEventSubmissionMembersRepo
+from schemas.response import BaseResponse
 
 router = APIRouter(prefix="/unit-event-submissions", tags=["Unit Event Submissions"])
 
@@ -162,3 +166,44 @@ async def get_all_unit_event_submission_members_by_unit_event_id(
     Quyền: ADMIN hoặc MANAGER.
     """
     return await service.get_all_htsk_members_by_unit_event_id(unit_event_id)
+
+
+@router.get("/HTSK/student/overview", response_model=HTSKStudentOverviewResponse)
+async def get_htsk_student_registration_overview(
+    unit_event_id: PydanticObjectId,
+    unit_id: PydanticObjectId,
+    current_user: TokenData = Depends(require_user),
+    service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
+) -> HTSKStudentOverviewResponse:
+    """
+    Lấy thông tin sự kiện HTSK cho sinh viên đăng kí
+    """
+    return await service.get_htsk_student_registration_overview(
+        unit_event_id=unit_event_id,
+        unit_id=unit_id,
+        current_user_id=current_user.sub,
+    )
+
+
+@router.post("/HTSK/student/register", response_model=HTSKStudentRegisterResponse)
+async def register_htsk_student(
+    data: HTSKStudentRegisterRequest,
+    current_user: TokenData = Depends(require_user),
+    service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
+) -> HTSKStudentRegisterResponse:
+    """
+    Đăng kí sự kiện HTSK cho sinh viên
+    """
+    return await service.register_htsk_student(data, current_user.sub)
+
+
+@router.delete("/HTSK/student/register", response_model=BaseResponse)
+async def cancel_htsk_student_registration(
+    data: HTSKStudentRegisterRequest,
+    current_user: TokenData = Depends(require_user),
+    service: UnitEventSubmissionsService = Depends(get_unit_event_submission_service),
+) -> BaseResponse:
+    """
+    Hủy đăng kí sự kiện HTSK cho sinh viên
+    """
+    return await service.cancel_htsk_student_registration(data, current_user.sub)

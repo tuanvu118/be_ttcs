@@ -15,6 +15,7 @@ from schemas.auth import TokenData
 from typing import List, Optional
 from beanie import PydanticObjectId
 from exceptions import ErrorCode, app_exception
+from models.unit_event import UnitEventEnum
 
 router = APIRouter(prefix="/unit-events", tags=["Unit Events"])
 
@@ -68,6 +69,7 @@ async def Create_Unit_Event(
     point: float = Form(0),
     type: str = Form(...),
     is_student_registration: bool = Form(False),
+    limit_student_registration_in_one_unit: int = Form(10000),
     event_start: str = Form(...),
     event_end: str = Form(...),
     registration_start: Optional[str] = Form(None),
@@ -95,6 +97,8 @@ async def Create_Unit_Event(
         description=description,
         point=Decimal(str(point)),
         type=type,
+        is_student_registration=is_student_registration,
+        limit_student_registration_in_one_unit=limit_student_registration_in_one_unit,
         event_start=datetime.fromisoformat(event_start),
         event_end=datetime.fromisoformat(event_end),
         registration_start=datetime.fromisoformat(registration_start) if registration_start else None,
@@ -103,6 +107,8 @@ async def Create_Unit_Event(
         semesterId=PydanticObjectId(semester_id) if semester_id else None
     )
     
+    if data.type == UnitEventEnum.HTSK and data.is_student_registration:
+        return await service.create_unit_event_student_registration(data, current_user.sub)
     return await service.create_unit_event(data, current_user.sub)
 
 @router.get("/all", response_model=UnitEventPaginationResponse, dependencies=[Depends(require_manager)])
