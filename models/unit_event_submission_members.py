@@ -9,3 +9,13 @@ class UnitEventSubmissionMember(Document):
 
     class Settings:
         name = "unit_event_submission_members"
+        indexes = [
+            {
+                "keys": [
+                    ("unitEventSubmissionId", 1),
+                    ("userId", 1),
+                ],
+                "unique": True,
+                "partialFilterExpression": {"userId": {"$exists": True}},
+            }
+        ]

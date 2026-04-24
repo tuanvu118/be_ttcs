@@ -3,6 +3,8 @@ from repositories.unit_event_submission_members_repo import UnitEventSubmissionM
 from repositories.unit_repo import UnitRepo
 from repositories.user_repo import UserRepo
 from repositories.user_unit_repo import UserUnitRepo
+from configs.redis_config import get_redis
+from configs.settings import HTSK_REGISTER_LOCK_TTL_SECONDS
 from schemas.unit_event_submissions import (
     UnitEventSubmissionCreate,
     UnitEventSubmissionResponse,
@@ -29,6 +31,8 @@ from schemas.unit import UnitBase
 from typing import List
 from schemas.users import UserRead
 from schemas.response import BaseResponse
+from uuid import uuid4
+from pymongo.errors import DuplicateKeyError
 
 class UnitEventSubmissionsService:
     def __init__(
@@ -94,6 +98,24 @@ class UnitEventSubmissionsService:
         registration_start = self._ensure_utc(unit_event.registration_start)
         registration_end = self._ensure_utc(unit_event.registration_end)
         return registration_start <= now < registration_end
+
+    @staticmethod
+    async def _acquire_lock(lock_key: str, token: str) -> bool:
+        redis = get_redis()
+        acquired = await redis.set(
+            lock_key,
+            token,
+            ex=HTSK_REGISTER_LOCK_TTL_SECONDS,
+            nx=True,
+        )
+        return bool(acquired)
+
+    @staticmethod
+    async def _release_lock(lock_key: str, token: str) -> None:
+        redis = get_redis()
+        current_token = await redis.get(lock_key)
+        if current_token == token:
+            await redis.delete(lock_key)
 
     async def _build_submission_member_response(
         self, submission: UnitEventSubmission
@@ -580,49 +602,66 @@ class UnitEventSubmissionsService:
         )
         if not submission:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
-        if submission.status != UnitEventSubmissionStatus.WAITING:
-            app_exception(
-                ErrorCode.INVALID_OPTION,
-                extra_detail="Đơn vị không ở trạng thái chờ đăng ký sinh viên",
-            )
-
         user = await self.user_repo.get_by_id(parsed_current_user_id)
         if not user:
             app_exception(ErrorCode.USER_NOT_FOUND)
 
-        existing_by_user = await self.unit_event_submission_members_repo.get_by_submission_and_user(
-            submission.id, parsed_current_user_id
-        )
-        existing_by_student = None
+        lock_key = f"htsk_student_register_lock:{submission.id}"
+        lock_token = str(uuid4())
+        if not await self._acquire_lock(lock_key, lock_token):
+            app_exception(
+                ErrorCode.INVALID_OPTION,
+                extra_detail="Yêu cầu đăng ký đang được xử lý, vui lòng thử lại",
+            )
+
         normalized_student_id = str(user.student_id).strip() if user.student_id else None
-        if not existing_by_user and normalized_student_id:
-            existing_by_student = await self.unit_event_submission_members_repo.get_by_submission_and_student(
-                submission.id, normalized_student_id
-            )
-        if existing_by_user or existing_by_student:
-            app_exception(ErrorCode.ALREADY_REGISTERED)
+        try:
+            latest_submission = await self.repo.get_by_id(submission.id)
+            if not latest_submission:
+                app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
+            if latest_submission.status != UnitEventSubmissionStatus.WAITING:
+                app_exception(
+                    ErrorCode.INVALID_OPTION,
+                    extra_detail="Đơn vị không ở trạng thái chờ đăng ký sinh viên",
+                )
 
-        slot_limit = unit_event.limit_student_registration_in_one_unit
-        slot_used = await self.unit_event_submission_members_repo.count_by_unit_event_submission_id(
-            submission.id
-        )
-        if slot_used >= slot_limit:
-            app_exception(ErrorCode.EVENT_FULL)
-
-        created_member = await self.unit_event_submission_members_repo.create(
-            UnitEventSubmissionMember(
-                unitEventSubmissionId=submission.id,
-                userId=parsed_current_user_id,
-                studentId=normalized_student_id,
-                checkIn=False,
+            existing_by_user = await self.unit_event_submission_members_repo.get_by_submission_and_user(
+                latest_submission.id, parsed_current_user_id
             )
-        )
+            existing_by_student = None
+            if not existing_by_user and normalized_student_id:
+                existing_by_student = await self.unit_event_submission_members_repo.get_by_submission_and_student(
+                    latest_submission.id, normalized_student_id
+                )
+            if existing_by_user or existing_by_student:
+                app_exception(ErrorCode.ALREADY_REGISTERED)
+
+            slot_limit = unit_event.limit_student_registration_in_one_unit
+            slot_used = await self.unit_event_submission_members_repo.count_by_unit_event_submission_id(
+                latest_submission.id
+            )
+            if slot_used >= slot_limit:
+                app_exception(ErrorCode.EVENT_FULL)
+
+            try:
+                created_member = await self.unit_event_submission_members_repo.create(
+                    UnitEventSubmissionMember(
+                        unitEventSubmissionId=latest_submission.id,
+                        userId=parsed_current_user_id,
+                        studentId=normalized_student_id,
+                        checkIn=False,
+                    )
+                )
+            except DuplicateKeyError:
+                app_exception(ErrorCode.ALREADY_REGISTERED)
+        finally:
+            await self._release_lock(lock_key, lock_token)
 
         updated_slot_used = slot_used + 1
         return HTSKStudentRegisterResponse(
             member_id=created_member.id,
             unit_event_id=parsed_unit_event_id,
-            submission_id=submission.id,
+            submission_id=latest_submission.id,
             slot_used=updated_slot_used,
             slot_remaining=max(slot_limit - updated_slot_used, 0),
             registered_at=self._utc_now(),
@@ -660,25 +699,39 @@ class UnitEventSubmissionsService:
         )
         if not submission:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
-        if submission.status != UnitEventSubmissionStatus.WAITING:
-            app_exception(
-                ErrorCode.INVALID_OPTION,
-                extra_detail="Chỉ được hủy khi đơn vị đang ở trạng thái WAITING",
-            )
-
         user = await self.user_repo.get_by_id(parsed_current_user_id)
         if not user:
             app_exception(ErrorCode.USER_NOT_FOUND)
 
-        existing_member = await self.unit_event_submission_members_repo.get_by_submission_and_user(
-            submission.id, parsed_current_user_id
-        )
-        if not existing_member and user.student_id:
-            existing_member = await self.unit_event_submission_members_repo.get_by_submission_and_student(
-                submission.id, str(user.student_id).strip()
+        lock_key = f"htsk_student_register_lock:{submission.id}"
+        lock_token = str(uuid4())
+        if not await self._acquire_lock(lock_key, lock_token):
+            app_exception(
+                ErrorCode.INVALID_OPTION,
+                extra_detail="Yêu cầu hủy đăng ký đang được xử lý, vui lòng thử lại",
             )
-        if not existing_member:
-            app_exception(ErrorCode.REGISTRATION_NOT_FOUND)
 
-        await existing_member.delete()
+        try:
+            latest_submission = await self.repo.get_by_id(submission.id)
+            if not latest_submission:
+                app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
+            if latest_submission.status != UnitEventSubmissionStatus.WAITING:
+                app_exception(
+                    ErrorCode.INVALID_OPTION,
+                    extra_detail="Chỉ được hủy khi đơn vị đang ở trạng thái WAITING",
+                )
+
+            existing_member = await self.unit_event_submission_members_repo.get_by_submission_and_user(
+                latest_submission.id, parsed_current_user_id
+            )
+            if not existing_member and user.student_id:
+                existing_member = await self.unit_event_submission_members_repo.get_by_submission_and_student(
+                    latest_submission.id, str(user.student_id).strip()
+                )
+            if not existing_member:
+                app_exception(ErrorCode.REGISTRATION_NOT_FOUND)
+
+            await existing_member.delete()
+        finally:
+            await self._release_lock(lock_key, lock_token)
         return BaseResponse(message="Hủy đăng ký tham gia HTSK thành công")
