@@ -22,12 +22,23 @@ class UnitEventCreate(BaseModel):
     type: UnitEventEnum
     event_start: datetime
     event_end: datetime
+    registration_start: Optional[datetime] = None
+    registration_end: Optional[datetime] = None
     semesterId: Optional[PydanticObjectId] = None
     listUnitId: List[PydanticObjectId] = Field(default_factory=list)
-
-    @field_validator("event_start", "event_end", mode="before")
+    is_student_registration: bool = Field(default=False)
+    limit_student_registration_in_one_unit: int = Field(default=10000)
+    @field_validator(
+        "event_start",
+        "event_end",
+        "registration_start",
+        "registration_end",
+        mode="before",
+    )
     @classmethod
-    def normalize_datetimes(cls, value: datetime) -> datetime:
+    def normalize_datetimes(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
         return _ensure_utc(value)
 
 class UnitEventResponse(BaseModel):
@@ -38,12 +49,23 @@ class UnitEventResponse(BaseModel):
     type: UnitEventEnum
     event_start: Optional[datetime] = None
     event_end: Optional[datetime] = None
+    registration_start: Optional[datetime] = None
+    registration_end: Optional[datetime] = None
+    is_student_registration: bool = Field(default=False)
+    limit_student_registration_in_one_unit: int = Field(default=10000)
     semesterId: PydanticObjectId
     created_at: datetime
     created_by: PydanticObjectId
     assigned_units: List[UnitRead]
 
-    @field_validator("event_start", "event_end", "created_at", mode="before")
+    @field_validator(
+        "event_start",
+        "event_end",
+        "registration_start",
+        "registration_end",
+        "created_at",
+        mode="before",
+    )
     @classmethod
     def normalize_response_datetimes(cls, value: datetime | None) -> datetime | None:
         if value is None:
@@ -60,10 +82,21 @@ class UnitEventResponseByUnitId(BaseModel):
     type: UnitEventEnum
     event_start: Optional[datetime] = None
     event_end: Optional[datetime] = None
+    registration_start: Optional[datetime] = None
+    registration_end: Optional[datetime] = None
     semesterId: PydanticObjectId
+    is_student_registration: bool = Field(default=False)
+    limit_student_registration_in_one_unit: int = Field(default=10000)
     created_at: datetime
 
-    @field_validator("event_start", "event_end", "created_at", mode="before")
+    @field_validator(
+        "event_start",
+        "event_end",
+        "registration_start",
+        "registration_end",
+        "created_at",
+        mode="before",
+    )
     @classmethod
     def normalize_summary_datetimes(cls, value: datetime | None) -> datetime | None:
         if value is None:
@@ -77,9 +110,18 @@ class UnitEventUpdate(BaseModel):
     point: Optional[Decimal] = None
     event_start: Optional[datetime] = None
     event_end: Optional[datetime] = None
+    registration_start: Optional[datetime] = None
+    registration_end: Optional[datetime] = None
     listUnitId: Optional[List[PydanticObjectId]] = None
-
-    @field_validator("event_start", "event_end", mode="before")
+    is_student_registration: Optional[bool] = None
+    limit_student_registration_in_one_unit: Optional[int] = None
+    @field_validator(
+        "event_start",
+        "event_end",
+        "registration_start",
+        "registration_end",
+        mode="before",
+    )
     @classmethod
     def normalize_optional_datetimes(cls, value: datetime | None) -> datetime | None:
         if value is None:
