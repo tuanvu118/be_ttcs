@@ -5,6 +5,7 @@ from pydantic import Field
 from typing import Optional
 
 class UnitEventSubmissionStatus(str, Enum):
+    WAITING = "WAITING"
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"

@@ -11,6 +11,8 @@ from repositories.unit_repo import UnitRepo
 from repositories.user_role_repo import UserRoleRepo
 from services.semester_service import SemesterService
 from schemas.unit import UnitRead
+from repositories.unit_event_submissions_repo import UnitEventSubmissionsRepo
+from models.unit_event_submissions import UnitEventSubmission, UnitEventSubmissionStatus
 
 class UnitEventService:
     def __init__(
@@ -18,10 +20,12 @@ class UnitEventService:
         repo: UnitEventRepo,
         unit_repo: UnitRepo | None = None,
         user_role_repo: UserRoleRepo | None = None,
+        unit_event_submissions_repo: UnitEventSubmissionsRepo | None = None,
     ) -> None:
         self.repo = repo
         self.unit_repo = unit_repo or UnitRepo()
         self.user_role_repo = user_role_repo or UserRoleRepo()
+        self.unit_event_submissions_repo = unit_event_submissions_repo or UnitEventSubmissionsRepo()
         self.semester_service = SemesterService(SemesterRepo())
 
     def _parse_object_id(self, value: PydanticObjectId | str, field_name: str) -> PydanticObjectId:
@@ -45,6 +49,19 @@ class UnitEventService:
         normalized_end = UnitEventService._ensure_utc(event_end)
         if normalized_start >= normalized_end:
             app_exception(ErrorCode.INVALID_EVENT_TIME)
+        return normalized_start, normalized_end
+
+    @staticmethod
+    def _validate_registration_time(
+        registration_start: datetime, registration_end: datetime
+    ) -> tuple[datetime, datetime]:
+        normalized_start = UnitEventService._ensure_utc(registration_start)
+        normalized_end = UnitEventService._ensure_utc(registration_end)
+        if normalized_start >= normalized_end:
+            app_exception(
+                ErrorCode.INVALID_REGISTRATION_TIME,
+                extra_detail="registration_start phải nhỏ hơn registration_end",
+            )
         return normalized_start, normalized_end
 
     async def _ensure_units_exist(
@@ -83,6 +100,10 @@ class UnitEventService:
             type=event.type,
             event_start=event.event_start,
             event_end=event.event_end,
+            registration_start=event.registration_start,
+            registration_end=event.registration_end,
+            is_student_registration=event.is_student_registration,
+            limit_student_registration_in_one_unit=event.limit_student_registration_in_one_unit,
             semesterId=event.semesterId,
             created_at=event.created_at,
             created_by=event.created_by,
@@ -98,7 +119,11 @@ class UnitEventService:
             type=event.type,
             event_start=event.event_start,
             event_end=event.event_end,
+            registration_start=event.registration_start,
+            registration_end=event.registration_end,
             semesterId=event.semesterId,
+            is_student_registration=event.is_student_registration,
+            limit_student_registration_in_one_unit=event.limit_student_registration_in_one_unit,
             created_at=event.created_at,
         )
 
@@ -117,6 +142,21 @@ class UnitEventService:
             payload.event_start,
             payload.event_end,
         )
+        registration_start = payload.registration_start
+        registration_end = payload.registration_end
+        if payload.type == UnitEventEnum.HTSK:
+            if registration_start is not None and registration_end is not None:
+                registration_start, registration_end = self._validate_registration_time(
+                    registration_start, registration_end
+                )
+            elif registration_start is not None or registration_end is not None:
+                app_exception(
+                    ErrorCode.INVALID_REGISTRATION_TIME,
+                    extra_detail="Cần truyền đủ registration_start và registration_end cho HTSK hoặc để null cả hai",
+                )
+        else:
+            registration_start = None
+            registration_end = None
 
         unit_event = UnitEvent(
             title=payload.title,
@@ -125,6 +165,10 @@ class UnitEventService:
             type=payload.type,
             event_start=event_start,
             event_end=event_end,
+            registration_start=registration_start,
+            registration_end=registration_end,
+            is_student_registration=payload.is_student_registration,
+            limit_student_registration_in_one_unit=payload.limit_student_registration_in_one_unit,
             semesterId=payload.semesterId or (await self.semester_service.get_current_semester()).id,
             listUnitId=unique_unit_ids,
             created_at=datetime.now(timezone.utc),
@@ -132,6 +176,67 @@ class UnitEventService:
         )
         saved = await self.repo.create(unit_event)
         return await self._build_event_response(saved)
+
+
+    async def _handle_after_create_student_registration_event(
+        self, event: UnitEventResponse
+    ) -> None:
+        """Tạo ngay phản hồi HTSK cho tất cả đơn vị, không cần danh sách thành viên.
+
+        Tạo cho tất cả UnitId thuộc event.listUnitId
+        content: None
+        evidenceUrl: None
+        status: UnitEventSubmissionStatus = WAITING
+"""
+        event_id = self._parse_object_id(event.id, "unit_event_id")
+        submitted_at = datetime.now(timezone.utc)
+        for unit in event.assigned_units:
+            unit_id = self._parse_object_id(unit.id, "unit_id")
+            existing_submission = await self.unit_event_submissions_repo.get_by_unit_event_id_and_unit_id(
+                event_id, unit_id
+            )
+            if existing_submission:
+                continue
+
+            await self.unit_event_submissions_repo.create(
+                UnitEventSubmission(
+                    unitEventId=event_id,
+                    unitId=unit_id,
+                    content=None,
+                    evidenceUrl=None,
+                    status=UnitEventSubmissionStatus.WAITING,
+                    submittedAt=submitted_at,
+                )
+            )
+
+    async def create_unit_event_student_registration(
+        self,
+        payload: UnitEventCreate,
+        current_user: str,
+    ) -> UnitEventResponse:
+        created_event = await self.create_unit_event(payload, current_user)
+        await self._handle_after_create_student_registration_event(created_event)
+        return created_event
+
+    async def auto_approve_waiting_submissions_after_registration_deadline(self) -> None:
+        """Tự động duyệt các submission đang WAITING khi event HTSK đã hết hạn đăng ký."""
+        now = datetime.now(timezone.utc)
+        expired_events = await self.repo.list_expired_htsk_student_registration_events(now)
+        if not expired_events:
+            return
+
+        for event in expired_events:
+            submissions = await self.unit_event_submissions_repo.get_all_by_unit_event_id(event.id)
+            for submission in submissions:
+                if submission.status != UnitEventSubmissionStatus.WAITING:
+                    continue
+                submission.status = UnitEventSubmissionStatus.APPROVED
+                await self.unit_event_submissions_repo.update(submission)
+
+
+
+
+
 
     async def get_all_unit_events_by_semester_id(
         self, 
@@ -215,6 +320,29 @@ class UnitEventService:
             update_data["event_start"],
             update_data["event_end"],
         ) = self._validate_event_time(merged_event_start, merged_event_end)
+
+        if event.type == UnitEventEnum.HTSK:
+            merged_registration_start = update_data.get(
+                "registration_start", event.registration_start
+            )
+            merged_registration_end = update_data.get(
+                "registration_end", event.registration_end
+            )
+            if merged_registration_start is not None and merged_registration_end is not None:
+                (
+                    update_data["registration_start"],
+                    update_data["registration_end"],
+                ) = self._validate_registration_time(
+                    merged_registration_start, merged_registration_end
+                )
+            elif merged_registration_start is not None or merged_registration_end is not None:
+                app_exception(
+                    ErrorCode.INVALID_REGISTRATION_TIME,
+                    extra_detail="Cần truyền đủ registration_start và registration_end cho HTSK hoặc để null cả hai",
+                )
+        else:
+            update_data["registration_start"] = None
+            update_data["registration_end"] = None
 
         for field, value in update_data.items():
             setattr(event, field, value)

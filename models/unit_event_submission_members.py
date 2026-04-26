@@ -1,4 +1,5 @@
 from beanie import Document, PydanticObjectId
+from pymongo import ASCENDING, IndexModel
 from typing import Optional
 
 class UnitEventSubmissionMember(Document):
@@ -9,3 +10,10 @@ class UnitEventSubmissionMember(Document):
 
     class Settings:
         name = "unit_event_submission_members"
+        indexes = [
+            IndexModel(
+                [("unitEventSubmissionId", ASCENDING), ("userId", ASCENDING)],
+                unique=True,
+                partialFilterExpression={"userId": {"$type": "objectId"}},
+            )
+        ]

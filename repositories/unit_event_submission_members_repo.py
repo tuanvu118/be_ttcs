@@ -19,6 +19,29 @@ class UnitEventSubmissionMembersRepo:
     async def get_all_by_unit_event_submission_id(self, unit_event_submission_id: PydanticObjectId) -> List[UnitEventSubmissionMember]:
         return await UnitEventSubmissionMember.find(UnitEventSubmissionMember.unitEventSubmissionId == unit_event_submission_id).to_list()
 
+    async def count_by_unit_event_submission_id(
+        self, unit_event_submission_id: PydanticObjectId
+    ) -> int:
+        return await UnitEventSubmissionMember.find(
+            UnitEventSubmissionMember.unitEventSubmissionId == unit_event_submission_id
+        ).count()
+
+    async def get_by_submission_and_user(
+        self, unit_event_submission_id: PydanticObjectId, user_id: PydanticObjectId
+    ) -> Optional[UnitEventSubmissionMember]:
+        return await UnitEventSubmissionMember.find_one(
+            UnitEventSubmissionMember.unitEventSubmissionId == unit_event_submission_id,
+            UnitEventSubmissionMember.userId == user_id,
+        )
+
+    async def get_by_submission_and_student(
+        self, unit_event_submission_id: PydanticObjectId, student_id: str
+    ) -> Optional[UnitEventSubmissionMember]:
+        return await UnitEventSubmissionMember.find_one(
+            UnitEventSubmissionMember.unitEventSubmissionId == unit_event_submission_id,
+            UnitEventSubmissionMember.studentId == student_id,
+        )
+
     async def get_all_by_unit_event_submission_ids(
         self, unit_event_submission_ids: List[PydanticObjectId]
     ) -> List[UnitEventSubmissionMember]:

@@ -1,4 +1,5 @@
-from models.unit_event import UnitEvent
+from models.unit_event import UnitEvent, UnitEventEnum
+from datetime import datetime, timezone
 from typing import List
 from beanie import PydanticObjectId
 from typing import Optional
@@ -45,6 +46,19 @@ class UnitEventRepo:
 
     async def get_all(self) -> List[UnitEvent]:
         return await UnitEvent.find_all().to_list()
+
+    async def list_expired_htsk_student_registration_events(
+        self,
+        now: datetime | None = None,
+    ) -> List[UnitEvent]:
+        deadline = now or datetime.now(timezone.utc)
+        return await UnitEvent.find(
+            UnitEvent.deleted_at == None,
+            UnitEvent.type == UnitEventEnum.HTSK,
+            UnitEvent.is_student_registration == True,
+            UnitEvent.registration_end != None,
+            UnitEvent.registration_end <= deadline,
+        ).to_list()
     
     async def get_by_id(self, unit_event_id: PydanticObjectId) -> Optional[UnitEvent]:
         return await UnitEvent.find_one(
