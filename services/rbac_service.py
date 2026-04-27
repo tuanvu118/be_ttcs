@@ -94,7 +94,10 @@ class RBACService:
     async def list_roles(self) -> List[RoleRead]:
         roles = await self.role_repo.list_all()
         roles = sorted(roles, key=lambda role: role.code)
-        return [RoleRead.model_validate(role) for role in roles]
+        unique_roles_by_code: Dict[str, Role] = {}
+        for role in roles:
+            unique_roles_by_code.setdefault(str(role.code), role)
+        return [RoleRead.model_validate(role) for role in unique_roles_by_code.values()]
 
     async def list_user_role_assignments(
         self,
