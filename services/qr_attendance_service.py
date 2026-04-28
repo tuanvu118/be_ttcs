@@ -576,3 +576,4 @@ class QRAttendanceService:
         await QRAttendanceService._get_unit_event_or_raise(event_id)
         attendances = await AttendanceRepository.list_by_event(event_id, event_type="unit")
         return [AttendanceRead.model_validate(attendance) for attendance in attendances]
+

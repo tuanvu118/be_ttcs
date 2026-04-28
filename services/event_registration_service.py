@@ -275,7 +275,9 @@ class EventRegistrationService:
                     student_id=user.student_id,
                     answers=r.answers,
                     registered_at=reg_at,
+                    checked_in=getattr(r, "checked_in", False),
                 )
+
             )
 
         return result

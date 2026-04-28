@@ -50,8 +50,10 @@ class EventRegistrationUserResponse(BaseModel):
     student_id: str
     answers: List[FormAnswer] = Field(default_factory=list)
     registered_at: datetime
+    checked_in: bool = False
 
     @field_validator("registered_at", mode="before", check_fields=False)
+
     @classmethod
     def force_utc(cls, v):
         if isinstance(v, datetime) and v.tzinfo is None:
