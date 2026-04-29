@@ -1,4 +1,8 @@
 from fastapi import APIRouter, FastAPI
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
+from utils.rate_limiter import limiter
 
 from configs.cloudinary import init_cloudinary
 from configs.database import init_db
@@ -29,6 +33,12 @@ app = FastAPI(
     redoc_url=f"{API_PREFIX}/redoc",
     openapi_url=f"{API_PREFIX}/openapi.json",
 )
+
+# Rate Limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 register_cors(app)
 
 api_router = APIRouter(prefix=API_PREFIX)

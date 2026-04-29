@@ -1,7 +1,16 @@
+import uuid
 from datetime import datetime, timezone
 
 from beanie import PydanticObjectId
+from pymongo.errors import DuplicateKeyError
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
+from configs.redis_config import get_redis
 from exceptions import ErrorCode, app_exception
 from repositories.event_registration_repo import EventRegistrationRepository
 from repositories.public_event_repo import PublicEventRepository
@@ -16,7 +25,27 @@ from schemas.event_registration import (
     MyEventRegistrationResponse,
     MyEventDetailResponse,
 )
+from utils.redis_lua import run_lua, rollback, _users_key
 
+def to_utc(dt):
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+# ========================
+# RETRY (gọn nhẹ)
+# ========================
+_db_retry = retry(
+    retry=retry_if_exception_type((TimeoutError, ConnectionError)),
+    stop=stop_after_attempt(2),
+    wait=wait_exponential(multiplier=0.2, max=1),
+    reraise=True,
+)
+
+ERROR_MAP = {
+    0: ErrorCode.ALREADY_REGISTERED,
+    -1: ErrorCode.ALREADY_REGISTERED,
+    -2: ErrorCode.EVENT_FULL,
+    -3: ErrorCode.EVENT_FULL,
+}
 
 class EventRegistrationService:
 
@@ -71,117 +100,101 @@ class EventRegistrationService:
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
         answers,
+        idempotency_key: str | None = None,
     ) -> EventRegistrationResponse:
 
         event = await PublicEventRepository.get_by_id(event_id)
-
         if not event:
             app_exception(ErrorCode.EVENT_NOT_FOUND)
 
         now = datetime.now(timezone.utc)
-
-        # Ensure registration times are aware
-        reg_start = event.registration_start
-        if reg_start.tzinfo is None:
-            reg_start = reg_start.replace(tzinfo=timezone.utc)
-        
-        reg_end = event.registration_end
-        if reg_end.tzinfo is None:
-            reg_end = reg_end.replace(tzinfo=timezone.utc)
-
-        if now < reg_start or now > reg_end:
+        if not (to_utc(event.registration_start) <= now <= to_utc(event.registration_end)):
             app_exception(ErrorCode.REGISTRATION_CLOSED)
-
-        existed = await EventRegistrationRepository.get_by_event_and_user(
-            event_id,
-            user_id,
-        )
-
-        if existed:
-            app_exception(ErrorCode.ALREADY_REGISTERED)
-
-        # Check for overbooking
-        current_count = await EventRegistrationRepository.count_by_event(event_id)
-        if event.max_participants > 0 and current_count >= event.max_participants:
-            app_exception(ErrorCode.EVENT_FULL)
 
         EventRegistrationService._validate_answers(event, answers)
 
-        registration = await EventRegistrationRepository.create(
-            {
+        # REDIS CHECK
+        max_p = event.max_participants or 0
+        result = await run_lua(str(event_id), str(user_id), max_p, idempotency_key)
+        
+        if result in ERROR_MAP:
+            app_exception(ERROR_MAP[result])
+
+        # DB INSERT
+        async def _insert():
+            return await EventRegistrationRepository.create({
                 "event_id": event_id,
                 "event_type": "public",
                 "user_id": user_id,
                 "answers": [a.model_dump() for a in answers],
                 "registered_at": now,
-            }
-        )
+            })
 
-        reg_at = registration.registered_at
-        if reg_at.tzinfo is None:
-            registration.registered_at = reg_at.replace(tzinfo=timezone.utc)
+        try:
+            reg = await _db_retry(_insert)()
+        except DuplicateKeyError:
+            await rollback(str(event_id), str(user_id), max_p, idempotency_key)
+            app_exception(ErrorCode.ALREADY_REGISTERED)
+        except Exception:
+            await rollback(str(event_id), str(user_id), max_p, idempotency_key)
+            raise
 
-        return EventRegistrationResponse.model_validate(registration)
+        reg.registered_at = to_utc(reg.registered_at)
+        return EventRegistrationResponse.model_validate(reg)
 
     @staticmethod
     async def register_unit_event(
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
         unit_id: PydanticObjectId,
+        idempotency_key: str | None = None,
     ) -> UnitEventRegistrationResponse:
 
         event = await UnitEventRepo().get_by_id(event_id)
         if not event:
             app_exception(ErrorCode.EVENT_NOT_FOUND)
 
-        user = await UserRepo().get_by_id(user_id)
-        if not user:
-            app_exception(ErrorCode.USER_NOT_FOUND)
-
-        allowed_unit_ids = event.listUnitId or []
-        if unit_id not in allowed_unit_ids:
+        if unit_id not in (event.listUnitId or []):
             app_exception(ErrorCode.UNIT_NOT_ALLOWED)
 
-        active_semester = await SemesterRepo().get_active()
-
-        if not active_semester:
+        sem = await SemesterRepo().get_active()
+        if not sem:
             app_exception(ErrorCode.ACTIVE_SEMESTER_NOT_FOUND)
 
-        membership = await UserUnitRepo().get_active(
-            user_id,
-            unit_id,
-            active_semester.id,
-        )
-        if not membership:
+        if not await UserUnitRepo().get_active(user_id, unit_id, sem.id):
             app_exception(ErrorCode.USER_NOT_IN_UNIT)
 
-        existed = await EventRegistrationRepository.get_by_event_and_user(
-            event_id,
-            user_id,
-        )
+        # REDIS CHECK
+        # Pass 999999999 instead of 0 to bypass global limit check (since 0 = unlimited logic was removed)
+        result = await run_lua(str(event_id), str(user_id), 999999999, idempotency_key)
+        
+        if result in ERROR_MAP:
+            app_exception(ERROR_MAP[result])
 
-        if existed:
-            app_exception(ErrorCode.ALREADY_REGISTERED)
-
-        registration = await EventRegistrationRepository.create(
-            {
+        # DB INSERT
+        now = datetime.now(timezone.utc)
+        try:
+            reg = await _db_retry(lambda: EventRegistrationRepository.create({
                 "event_id": event_id,
                 "event_type": "unit",
                 "user_id": user_id,
-                "registered_at": datetime.now(timezone.utc),
-            }
-        )
-        reg_at = registration.registered_at
-        if reg_at.tzinfo is None:
-            reg_at = reg_at.replace(tzinfo=timezone.utc)
-            
+                "registered_at": now,
+            }))()
+        except DuplicateKeyError:
+            await rollback(str(event_id), str(user_id), 0, idempotency_key)
+            app_exception(ErrorCode.ALREADY_REGISTERED)
+        except Exception:
+            await rollback(str(event_id), str(user_id), 0, idempotency_key)
+            raise
+
         return UnitEventRegistrationResponse(
-            id=registration.id,
-            event_id=registration.event_id,
-            user_id=registration.user_id,
+            id=reg.id,
+            event_id=reg.event_id,
+            user_id=reg.user_id,
             unit_id=unit_id,
-            registered_at=reg_at,
+            registered_at=to_utc(reg.registered_at),
         )
+
 
     # -------------------------
     # CANCEL
@@ -191,7 +204,6 @@ class EventRegistrationService:
         event_id: PydanticObjectId,
         user_id: PydanticObjectId,
     ):
-
         deleted = await EventRegistrationRepository.delete_by_event_and_user(
             event_id,
             user_id,
@@ -200,6 +212,21 @@ class EventRegistrationService:
         if not deleted:
             app_exception(ErrorCode.REGISTRATION_NOT_FOUND)
 
+        # Cập nhật lại Redis: xóa user khỏi Set
+        try:
+            redis = get_redis()
+            event_id_str = str(event_id)
+            user_id_str = str(user_id)
+            u_key = _users_key(event_id_str)
+
+            await redis.srem(u_key, user_id_str)
+        except Exception:
+            # Redis sync fail không ảnh hưởng đến DB (DB đã xóa rồi)
+            pass
+
+    # -------------------------
+    # READ OPERATIONS (không thay đổi)
+    # -------------------------
     @staticmethod
     async def get_my_registrations(
         user_id: PydanticObjectId,
