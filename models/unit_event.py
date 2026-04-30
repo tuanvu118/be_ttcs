@@ -15,6 +15,7 @@ class UnitEventEnum(str, Enum):
 class UnitEvent(Document):
     title: str
     description: Optional[str] = None
+    location: Optional[str] = None
     point: DecimalAnnotation = Field(
         default=Decimal("0"),
         ge=Decimal("0"),

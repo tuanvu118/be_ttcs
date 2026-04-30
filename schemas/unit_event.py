@@ -18,6 +18,7 @@ def _ensure_utc(value: datetime) -> datetime:
 class UnitEventCreate(BaseModel):
     title: str
     description: Optional[str] = None
+    location: Optional[str] = None
     point: Decimal = Field(default=Decimal("0"))
     type: UnitEventEnum
     event_start: datetime
@@ -45,6 +46,7 @@ class UnitEventResponse(BaseModel):
     id: PydanticObjectId
     title: str
     description: Optional[str] = None
+    location: Optional[str] = None
     point: Decimal = Field(default=Decimal("0"))
     type: UnitEventEnum
     event_start: Optional[datetime] = None
@@ -78,6 +80,7 @@ class UnitEventResponseByUnitId(BaseModel):
     id: PydanticObjectId
     title: str
     description: Optional[str] = None
+    location: Optional[str] = None
     point: Decimal = Field(default=Decimal("0"))
     type: UnitEventEnum
     event_start: Optional[datetime] = None
@@ -107,6 +110,7 @@ class UnitEventUpdate(BaseModel):
     semesterId: Optional[PydanticObjectId] = None
     title: Optional[str] = None
     description: Optional[str] = None
+    location: Optional[str] = None
     point: Optional[Decimal] = None
     event_start: Optional[datetime] = None
     event_end: Optional[datetime] = None

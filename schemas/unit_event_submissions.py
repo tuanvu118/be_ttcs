@@ -117,6 +117,7 @@ class HTSKStudentOverviewResponse(BaseModel):
     unit_event_id: PydanticObjectId
     title: str
     description: str | None = None
+    location: str | None = None
     event_start: datetime | None = None
     event_end: datetime | None = None
     registration_start: datetime | None = None

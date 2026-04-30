@@ -558,6 +558,7 @@ class UnitEventSubmissionsService:
             unit_event_id=unit_event.id,
             title=unit_event.title,
             description=unit_event.description,
+            location=unit_event.location,
             event_start=unit_event.event_start,
             event_end=unit_event.event_end,
             registration_start=unit_event.registration_start,

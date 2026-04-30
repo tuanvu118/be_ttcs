@@ -96,6 +96,7 @@ class UnitEventService:
             id=event.id,
             title=event.title,
             description=event.description,
+            location=event.location,
             point=event.point,
             type=event.type,
             event_start=event.event_start,
@@ -115,6 +116,7 @@ class UnitEventService:
             id=event.id,
             title=event.title,
             description=event.description,
+            location=event.location,
             point=event.point,
             type=event.type,
             event_start=event.event_start,
@@ -157,10 +159,12 @@ class UnitEventService:
         else:
             registration_start = None
             registration_end = None
+        location = payload.location if payload.type == UnitEventEnum.HTSK else None
 
         unit_event = UnitEvent(
             title=payload.title,
             description=payload.description,
+            location=location,
             point=payload.point,
             type=payload.type,
             event_start=event_start,
@@ -343,6 +347,9 @@ class UnitEventService:
         else:
             update_data["registration_start"] = None
             update_data["registration_end"] = None
+
+        if event.type == UnitEventEnum.HTTT:
+            update_data["location"] = None
 
         for field, value in update_data.items():
             setattr(event, field, value)
