@@ -47,7 +47,7 @@ class UnitEventRepo:
     async def get_all(self) -> List[UnitEvent]:
         return await UnitEvent.find_all().to_list()
 
-    async def list_expired_htsk_student_registration_events(
+    async def list_expired_htsk_events_by_registration_end(
         self,
         now: datetime | None = None,
     ) -> List[UnitEvent]:
@@ -55,7 +55,6 @@ class UnitEventRepo:
         return await UnitEvent.find(
             UnitEvent.deleted_at == None,
             UnitEvent.type == UnitEventEnum.HTSK,
-            UnitEvent.is_student_registration == True,
             UnitEvent.registration_end != None,
             UnitEvent.registration_end <= deadline,
         ).to_list()

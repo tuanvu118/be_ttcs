@@ -219,9 +219,9 @@ class UnitEventService:
         return created_event
 
     async def auto_approve_waiting_submissions_after_registration_deadline(self) -> None:
-        """Tự động duyệt các submission đang WAITING khi event HTSK đã hết hạn đăng ký."""
+        """Tự động duyệt các submission WAITING khi event HTSK đã qua registration_end."""
         now = datetime.now(timezone.utc)
-        expired_events = await self.repo.list_expired_htsk_student_registration_events(now)
+        expired_events = await self.repo.list_expired_htsk_events_by_registration_end(now)
         if not expired_events:
             return
 
