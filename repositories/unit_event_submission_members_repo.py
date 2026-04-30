@@ -42,6 +42,22 @@ class UnitEventSubmissionMembersRepo:
             UnitEventSubmissionMember.studentId == student_id,
         )
 
+    async def get_by_unit_event_and_user(
+        self, unit_event_id: PydanticObjectId, user_id: PydanticObjectId
+    ) -> Optional[UnitEventSubmissionMember]:
+        return await UnitEventSubmissionMember.find_one(
+            UnitEventSubmissionMember.unitEventId == unit_event_id,
+            UnitEventSubmissionMember.userId == user_id,
+        )
+
+    async def get_by_unit_event_and_student(
+        self, unit_event_id: PydanticObjectId, student_id: str
+    ) -> Optional[UnitEventSubmissionMember]:
+        return await UnitEventSubmissionMember.find_one(
+            UnitEventSubmissionMember.unitEventId == unit_event_id,
+            UnitEventSubmissionMember.studentId == student_id,
+        )
+
     async def get_all_by_unit_event_submission_ids(
         self, unit_event_submission_ids: List[PydanticObjectId]
     ) -> List[UnitEventSubmissionMember]:
