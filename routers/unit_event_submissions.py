@@ -150,7 +150,7 @@ async def update_unit_event_submission_member(
     """
     Sửa phản hồi HTSK theo unit_event_id và X-Unit-Id của đơn vị mình.
 
-    Chỉ sửa được khi sự kiện đã được bắt đầu đăng kí và chưa kết thúc đăng kí
+    Chỉ sửa được khi sự kiện đã được bắt đầu đăng kí và chưa kết thúc đăng kí, không quan tâm đến trạng thái phản hồi
     """
     return await service.update_unit_event_submission_member(unit_event_id, x_unit_id, data)
 

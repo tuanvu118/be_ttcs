@@ -368,6 +368,8 @@ class UnitEventSubmissionsService:
         unit_event = await UnitEvent.get(parsed_unit_event_id)
         if not unit_event:
             app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        if unit_event.type == UnitEventEnum.HTSK:
+            self._ensure_htsk_submission_open(unit_event)
         self._ensure_unit_assigned_to_event(unit_event, parsed_unit_id)
 
         submission = await self.repo.get_by_unit_event_id_and_unit_id(
@@ -376,18 +378,12 @@ class UnitEventSubmissionsService:
         if not submission:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
 
-        if submission.status == UnitEventSubmissionStatus.APPROVED:
-            app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_APPROVED)
-
         update_data = data.model_dump(exclude_unset=True)
         list_MSV = update_data.pop("list_MSV", None)
         if list_MSV is not None:
             list_MSV = [str(x).strip() for x in list_MSV if str(x).strip()]
         for field, value in update_data.items():
             setattr(submission, field, value)
-
-        if submission.status == UnitEventSubmissionStatus.REJECTED:
-            submission.status = UnitEventSubmissionStatus.PENDING
         submission.submittedAt = self._utc_now()
         saved = await self.repo.update(submission)
 
