@@ -100,5 +100,3 @@ async def list_unit_event_attendance_records(
     _: TokenData = Depends(require_admin_or_manager_global),
 ):
     return await QRAttendanceService.list_unit_event_attendances(event_id=event_id)
-
-
