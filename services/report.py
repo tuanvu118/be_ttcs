@@ -100,6 +100,9 @@ class ReportService:
         units = await UnitRepo().list_all()
 
         for unit in units:
+            if unit.name and unit.name.upper() == "DEFAULT":
+                continue
+
             # 1. Ensure current cycle report exists
             await ReportService.auto_create_report_for_unit(unit.id, month, year, semester.id)
 
@@ -124,8 +127,10 @@ class ReportService:
         # Ensure current cycle report exists
         semester = await SemesterRepo().get_active()
         if semester:
-            m, y = ReportService._get_default_month_year()
-            await ReportService.auto_create_report_for_unit(unit_id, m, y, semester.id)
+            unit = await UnitRepo().get_by_id(unit_id)
+            if unit and unit.name and unit.name.upper() != "DEFAULT":
+                m, y = ReportService._get_default_month_year()
+                await ReportService.auto_create_report_for_unit(unit_id, m, y, semester.id)
 
         reports, total = await ReportRepository.get_filtered(
             unit_id=unit_id,
@@ -260,6 +265,7 @@ class ReportService:
                     id=ue.id, 
                     title=ue.title,
                     type=ue.type,
+                    point=float(ue.point) if ue.point else 0,
                     created_at=ue.created_at
                 )
                 for ue in unit_events

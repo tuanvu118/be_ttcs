@@ -1,8 +1,9 @@
 from typing import List
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, Header, Path, status
+from fastapi import APIRouter, Depends, Header, Path, Request, status
 
+from utils.rate_limiter import limiter
 from schemas.auth import TokenData
 from schemas.event_registration import (
     EventRegistrationRequest,
@@ -24,15 +25,19 @@ router = APIRouter(prefix="/events", tags=["Event Registration"])
     response_model=EventRegistrationResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("100/second")
 async def register_public_event(
+    request: Request,
     event_id: PydanticObjectId = Path(...),
-    request: EventRegistrationRequest = None,
+    body: EventRegistrationRequest = None,
     current_user: TokenData = Depends(require_user),
+    x_idempotency_key: str = Header(default=None, alias="X-Idempotency-Key"),
 ):
     return await EventRegistrationService.register_public_event(
         event_id=event_id,
         user_id=PydanticObjectId(current_user.sub),
-        answers=request.answers if request else [],
+        answers=body.answers if body else [],
+        idempotency_key=x_idempotency_key,
     )
 
 
@@ -41,15 +46,19 @@ async def register_public_event(
     response_model=UnitEventRegistrationResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("100/second")
 async def register_unit_event(
+    request: Request,
     event_id: PydanticObjectId = Path(...),
     current_user: TokenData = Depends(require_user),
     x_unit_id: PydanticObjectId = Header(..., alias="X-Unit-Id"),
+    x_idempotency_key: str = Header(default=None, alias="X-Idempotency-Key"),
 ):
     return await EventRegistrationService.register_unit_event(
         event_id=event_id,
         user_id=PydanticObjectId(current_user.sub),
         unit_id=x_unit_id,
+        idempotency_key=x_idempotency_key,
     )
 
 

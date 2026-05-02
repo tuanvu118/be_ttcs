@@ -164,3 +164,10 @@ class CheckInMessage(BaseModel):
     @classmethod
     def normalize_message_datetime(cls, value: datetime) -> datetime:
         return _ensure_utc(value)
+
+
+class ManualAttendanceRequest(BaseModel):
+    event_id: PydanticObjectId
+    user_id: PydanticObjectId
+    event_type: str = "public"
+

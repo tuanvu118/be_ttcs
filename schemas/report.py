@@ -40,6 +40,7 @@ class UnitEventSummary(BaseModel):
     id: PydanticObjectId
     title: str
     type: str
+    point: float = 0
     created_at: datetime
 
     @field_validator("created_at", mode="before", check_fields=False)

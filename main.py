@@ -1,4 +1,8 @@
 from fastapi import APIRouter, FastAPI
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
+from utils.rate_limiter import limiter
 
 from configs.cloudinary import init_cloudinary
 from configs.database import init_db
@@ -8,6 +12,8 @@ from configs.redis_config import close_redis
 from configs.settings import API_PREFIX, ENABLE_APP_SCHEDULER
 from middleware.cors import register_cors
 from routers.attendance import router as attendance_router
+from routers.manual_attendance import router as manual_attendance_router
+
 from routers.auth import router as auth_router
 from routers.event_registration import router as event_registration_router
 from routers.public_event import router as public_event_router
@@ -27,6 +33,12 @@ app = FastAPI(
     redoc_url=f"{API_PREFIX}/redoc",
     openapi_url=f"{API_PREFIX}/openapi.json",
 )
+
+# Rate Limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 register_cors(app)
 
 api_router = APIRouter(prefix=API_PREFIX)
@@ -39,6 +51,8 @@ api_router.include_router(public_event_router)
 api_router.include_router(report_router)
 api_router.include_router(event_registration_router)
 api_router.include_router(attendance_router)
+api_router.include_router(manual_attendance_router)
+
 api_router.include_router(unit_event_router)
 api_router.include_router(unit_event_submissions_router)
 api_router.include_router(event_promotion_router)
