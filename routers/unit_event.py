@@ -66,6 +66,7 @@ dependencies=[Depends(require_manager)]
 async def Create_Unit_Event(
     title: str = Form(...),
     description: str = Form(None),
+    location: Optional[str] = Form(None),
     point: float = Form(0),
     type: str = Form(...),
     is_student_registration: bool = Form(False),
@@ -95,6 +96,7 @@ async def Create_Unit_Event(
     data = UnitEventCreate(
         title=title,
         description=description,
+        location=location,
         point=Decimal(str(point)),
         type=type,
         is_student_registration=is_student_registration,
@@ -161,6 +163,7 @@ async def Update_Unit_Event(
     event_id: PydanticObjectId,
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
     point: Optional[float] = Form(None),
     event_start: Optional[str] = Form(None),
     event_end: Optional[str] = Form(None),
@@ -177,6 +180,7 @@ async def Update_Unit_Event(
     update_data = {}
     if title is not None: update_data["title"] = title
     if description is not None: update_data["description"] = description
+    if location is not None: update_data["location"] = location
     if point is not None: update_data["point"] = Decimal(str(point))
     if event_start is not None: update_data["event_start"] = datetime.fromisoformat(event_start)
     if event_end is not None: update_data["event_end"] = datetime.fromisoformat(event_end)

@@ -96,6 +96,7 @@ class UnitEventService:
             id=event.id,
             title=event.title,
             description=event.description,
+            location=event.location,
             point=event.point,
             type=event.type,
             event_start=event.event_start,
@@ -115,6 +116,7 @@ class UnitEventService:
             id=event.id,
             title=event.title,
             description=event.description,
+            location=event.location,
             point=event.point,
             type=event.type,
             event_start=event.event_start,
@@ -157,10 +159,12 @@ class UnitEventService:
         else:
             registration_start = None
             registration_end = None
+        location = payload.location if payload.type == UnitEventEnum.HTSK else None
 
         unit_event = UnitEvent(
             title=payload.title,
             description=payload.description,
+            location=location,
             point=payload.point,
             type=payload.type,
             event_start=event_start,
@@ -219,9 +223,9 @@ class UnitEventService:
         return created_event
 
     async def auto_approve_waiting_submissions_after_registration_deadline(self) -> None:
-        """Tự động duyệt các submission đang WAITING khi event HTSK đã hết hạn đăng ký."""
+        """Tự động duyệt các submission WAITING khi event HTSK đã qua registration_end."""
         now = datetime.now(timezone.utc)
-        expired_events = await self.repo.list_expired_htsk_student_registration_events(now)
+        expired_events = await self.repo.list_expired_htsk_events_by_registration_end(now)
         if not expired_events:
             return
 
@@ -343,6 +347,9 @@ class UnitEventService:
         else:
             update_data["registration_start"] = None
             update_data["registration_end"] = None
+
+        if event.type == UnitEventEnum.HTTT:
+            update_data["location"] = None
 
         for field, value in update_data.items():
             setattr(event, field, value)

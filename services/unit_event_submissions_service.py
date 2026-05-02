@@ -331,12 +331,19 @@ class UnitEventSubmissionsService:
 
         for student_id in data.list_MSV:
             unit_event_submission_member = UnitEventSubmissionMember(
+                unitEventId=unit_event_id,
                 unitEventSubmissionId=saved.id,
                 studentId=student_id,
                 userId=user_ids_by_student_id[str(student_id).strip()],
                 checkIn=False,
             )
-            await self.unit_event_submission_members_repo.create(unit_event_submission_member)
+            try:
+                await self.unit_event_submission_members_repo.create(unit_event_submission_member)
+            except DuplicateKeyError:
+                app_exception(
+                    ErrorCode.ALREADY_REGISTERED,
+                    extra_detail="Sinh viên đã đăng ký ở đơn vị khác trong cùng sự kiện",
+                )
 
         return await self._build_submission_member_response(saved)
 
@@ -368,6 +375,8 @@ class UnitEventSubmissionsService:
         unit_event = await UnitEvent.get(parsed_unit_event_id)
         if not unit_event:
             app_exception(ErrorCode.UNIT_EVENT_NOT_FOUND)
+        if unit_event.type == UnitEventEnum.HTSK:
+            self._ensure_htsk_submission_open(unit_event)
         self._ensure_unit_assigned_to_event(unit_event, parsed_unit_id)
 
         submission = await self.repo.get_by_unit_event_id_and_unit_id(
@@ -376,18 +385,12 @@ class UnitEventSubmissionsService:
         if not submission:
             app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_NOT_FOUND)
 
-        if submission.status == UnitEventSubmissionStatus.APPROVED:
-            app_exception(ErrorCode.UNIT_EVENT_SUBMISSION_ALREADY_APPROVED)
-
         update_data = data.model_dump(exclude_unset=True)
         list_MSV = update_data.pop("list_MSV", None)
         if list_MSV is not None:
             list_MSV = [str(x).strip() for x in list_MSV if str(x).strip()]
         for field, value in update_data.items():
             setattr(submission, field, value)
-
-        if submission.status == UnitEventSubmissionStatus.REJECTED:
-            submission.status = UnitEventSubmissionStatus.PENDING
         submission.submittedAt = self._utc_now()
         saved = await self.repo.update(submission)
 
@@ -401,14 +404,21 @@ class UnitEventSubmissionsService:
                 saved.id
             )
             for student_id in list_MSV:
-                await self.unit_event_submission_members_repo.create(
-                    UnitEventSubmissionMember(
-                        unitEventSubmissionId=saved.id,
-                        studentId=student_id,
-                        userId=user_ids_by_student_id[str(student_id).strip()],
-                        checkIn=False,
+                try:
+                    await self.unit_event_submission_members_repo.create(
+                        UnitEventSubmissionMember(
+                            unitEventId=parsed_unit_event_id,
+                            unitEventSubmissionId=saved.id,
+                            studentId=student_id,
+                            userId=user_ids_by_student_id[str(student_id).strip()],
+                            checkIn=False,
+                        )
                     )
-                )
+                except DuplicateKeyError:
+                    app_exception(
+                        ErrorCode.ALREADY_REGISTERED,
+                        extra_detail="Sinh viên đã đăng ký ở đơn vị khác trong cùng sự kiện",
+                    )
 
         return await self._build_submission_member_response(saved)
 
@@ -525,13 +535,13 @@ class UnitEventSubmissionsService:
         )
         slot_remaining = max(slot_limit - slot_used, 0)
 
-        existing_by_user = await self.unit_event_submission_members_repo.get_by_submission_and_user(
-            submission.id, parsed_current_user_id
+        existing_by_user = await self.unit_event_submission_members_repo.get_by_unit_event_and_user(
+            parsed_unit_event_id, parsed_current_user_id
         )
         existing_by_student = None
         if not existing_by_user and user.student_id:
-            existing_by_student = await self.unit_event_submission_members_repo.get_by_submission_and_student(
-                submission.id, str(user.student_id).strip()
+            existing_by_student = await self.unit_event_submission_members_repo.get_by_unit_event_and_student(
+                parsed_unit_event_id, str(user.student_id).strip()
             )
         existing_member = existing_by_user or existing_by_student
         is_registered = existing_member is not None
@@ -548,6 +558,7 @@ class UnitEventSubmissionsService:
             unit_event_id=unit_event.id,
             title=unit_event.title,
             description=unit_event.description,
+            location=unit_event.location,
             event_start=unit_event.event_start,
             event_end=unit_event.event_end,
             registration_start=unit_event.registration_start,
@@ -625,16 +636,19 @@ class UnitEventSubmissionsService:
                     extra_detail="Đơn vị không ở trạng thái chờ đăng ký sinh viên",
                 )
 
-            existing_by_user = await self.unit_event_submission_members_repo.get_by_submission_and_user(
-                latest_submission.id, parsed_current_user_id
+            existing_by_user = await self.unit_event_submission_members_repo.get_by_unit_event_and_user(
+                parsed_unit_event_id, parsed_current_user_id
             )
             existing_by_student = None
             if not existing_by_user and normalized_student_id:
-                existing_by_student = await self.unit_event_submission_members_repo.get_by_submission_and_student(
-                    latest_submission.id, normalized_student_id
+                existing_by_student = await self.unit_event_submission_members_repo.get_by_unit_event_and_student(
+                    parsed_unit_event_id, normalized_student_id
                 )
             if existing_by_user or existing_by_student:
-                app_exception(ErrorCode.ALREADY_REGISTERED)
+                app_exception(
+                    ErrorCode.ALREADY_REGISTERED,
+                    extra_detail="Bạn đã đăng ký ở đơn vị khác trong cùng sự kiện",
+                )
 
             slot_limit = unit_event.limit_student_registration_in_one_unit
             slot_used = await self.unit_event_submission_members_repo.count_by_unit_event_submission_id(
@@ -646,6 +660,7 @@ class UnitEventSubmissionsService:
             try:
                 created_member = await self.unit_event_submission_members_repo.create(
                     UnitEventSubmissionMember(
+                        unitEventId=parsed_unit_event_id,
                         unitEventSubmissionId=latest_submission.id,
                         userId=parsed_current_user_id,
                         studentId=normalized_student_id,
@@ -653,7 +668,10 @@ class UnitEventSubmissionsService:
                     )
                 )
             except DuplicateKeyError:
-                app_exception(ErrorCode.ALREADY_REGISTERED)
+                app_exception(
+                    ErrorCode.ALREADY_REGISTERED,
+                    extra_detail="Bạn đã đăng ký ở đơn vị khác trong cùng sự kiện",
+                )
         finally:
             await self._release_lock(lock_key, lock_token)
 
