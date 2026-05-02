@@ -18,6 +18,7 @@ class Unit(Document):
     type: Optional[UnitType] = UnitType.CLB
     established_year: Optional[int] = None
     email: Optional[str] = None
+    fb_url: Optional[str] = None
     member_count: Optional[int] = 0
 
     class Settings:

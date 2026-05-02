@@ -30,9 +30,6 @@ from utils.redis_lua import run_lua, rollback, _users_key
 def to_utc(dt):
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
-# ========================
-# RETRY (gọn nhẹ)
-# ========================
 _db_retry = retry(
     retry=retry_if_exception_type((TimeoutError, ConnectionError)),
     stop=stop_after_attempt(2),
@@ -49,9 +46,6 @@ ERROR_MAP = {
 
 class EventRegistrationService:
 
-    # -------------------------
-    # VALIDATE FORM
-    # -------------------------
     @staticmethod
     def _validate_answers(event, answers):
 
@@ -92,9 +86,6 @@ class EventRegistrationService:
                 if len(value) > 1000:
                     app_exception(ErrorCode.INVALID_FORM_FIELD, f"Câu trả lời cho '{field.label}' không được vượt quá 1000 ký tự")
 
-    # -------------------------
-    # PUBLIC EVENT REGISTER
-    # -------------------------
     @staticmethod
     async def register_public_event(
         event_id: PydanticObjectId,
@@ -114,7 +105,8 @@ class EventRegistrationService:
         EventRegistrationService._validate_answers(event, answers)
 
         # REDIS CHECK
-        max_p = event.max_participants or 0
+        max_p = event.max_participants if event.max_participants and event.max_participants > 0 else 1
+        print(f"📌 PUBLIC: event {event_id}, max_p from DB = {event.max_participants}, using max_p = {max_p}")
         result = await run_lua(str(event_id), str(user_id), max_p, idempotency_key)
         
         if result in ERROR_MAP:
@@ -133,10 +125,10 @@ class EventRegistrationService:
         try:
             reg = await _db_retry(_insert)()
         except DuplicateKeyError:
-            await rollback(str(event_id), str(user_id), max_p, idempotency_key)
+            await rollback(str(event_id), str(user_id), idempotency_key)
             app_exception(ErrorCode.ALREADY_REGISTERED)
         except Exception:
-            await rollback(str(event_id), str(user_id), max_p, idempotency_key)
+            await rollback(str(event_id), str(user_id), idempotency_key)
             raise
 
         reg.registered_at = to_utc(reg.registered_at)
@@ -165,8 +157,9 @@ class EventRegistrationService:
             app_exception(ErrorCode.USER_NOT_IN_UNIT)
 
         # REDIS CHECK
-        # Pass 999999999 instead of 0 to bypass global limit check (since 0 = unlimited logic was removed)
-        result = await run_lua(str(event_id), str(user_id), 999999999, idempotency_key)
+        max_p = event.max_participants if event.max_participants and event.max_participants > 0 else 1
+        print(f"📌 UNIT: event {event_id}, max_p from DB = {event.max_participants}, using max_p = {max_p}")
+        result = await run_lua(str(event_id), str(user_id), max_p, idempotency_key)
         
         if result in ERROR_MAP:
             app_exception(ERROR_MAP[result])
@@ -181,10 +174,10 @@ class EventRegistrationService:
                 "registered_at": now,
             }))()
         except DuplicateKeyError:
-            await rollback(str(event_id), str(user_id), 0, idempotency_key)
+            await rollback(str(event_id), str(user_id), idempotency_key)
             app_exception(ErrorCode.ALREADY_REGISTERED)
         except Exception:
-            await rollback(str(event_id), str(user_id), 0, idempotency_key)
+            await rollback(str(event_id), str(user_id), idempotency_key)
             raise
 
         return UnitEventRegistrationResponse(

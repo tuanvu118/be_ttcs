@@ -31,6 +31,7 @@ async def create_unit(
     established_year: int | None = Form(None),
     member_count: int | None = Form(None),
     email: str | None = Form(None),
+    fb_url: str | None = Form(None),
     logo: UploadFile | None = None,
     cover: UploadFile | None = None,
     service: UnitService = Depends(get_unit_service),
@@ -41,7 +42,8 @@ async def create_unit(
         introduction=introduction,
         established_year=established_year,
         member_count=member_count,
-        email=email
+        email=email,
+        fb_url=fb_url
     )
     return await service.create_unit(payload, logo, cover)
 
@@ -90,6 +92,7 @@ async def update_unit(
     established_year: int | None = Form(None),
     member_count: int | None = Form(None),
     email: str | None = Form(None),
+    fb_url: str | None = Form(None),
     logo: UploadFile | None = None,
     cover: UploadFile | None = None,
     current_user: TokenData = Depends(require_user),
@@ -101,7 +104,8 @@ async def update_unit(
         introduction=introduction,
         established_year=established_year,
         member_count=member_count,
-        email=email
+        email=email,
+        fb_url=fb_url
     )
     return await service.update_unit(unit_id, payload, current_user, logo, cover)
 
