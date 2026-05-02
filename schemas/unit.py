@@ -11,6 +11,8 @@ class UnitBase(BaseModel):
     introduction: Optional[str] = None
     type: Optional[str] = None
     established_year: Optional[int] = None
+    email: Optional[str] = None
+    fb_url: Optional[str] = None
     member_count: Optional[int] = 0
 
 
@@ -26,6 +28,8 @@ class UnitUpdate(BaseModel):
     established_year: Optional[int] = None
     member_count: Optional[int] = None
     cover_url: Optional[str] = None
+    email: Optional[str] = None
+    fb_url: Optional[str] = None
 
 
 class UnitRead(UnitBase):

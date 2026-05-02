@@ -107,6 +107,9 @@ class UnitService:
             cover_url=cover_url,
             introduction=payload.introduction,
             type=payload.type,
+            established_year=payload.established_year,
+            email=payload.email,
+            fb_url=payload.fb_url,
         )
         saved = await self.repo.create(unit)
         return UnitRead.model_validate(saved)
