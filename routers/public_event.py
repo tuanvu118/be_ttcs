@@ -1,9 +1,13 @@
+from datetime import datetime
 from typing import Optional
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, Form, UploadFile, File, status, HTTPException, Query
 from pydantic import ValidationError
 import json
+from bson.errors import InvalidId
+
+from exceptions import ErrorCode, app_exception
 from schemas.public_event import PublicEventCreate, PublicEventRead, PublicEventUpdate, PublicEventPaginationResponse
 from security import require_manager
 from services.public_event_service import PublicEventService
@@ -11,6 +15,13 @@ from services.public_event_service import PublicEventService
 
 router = APIRouter(prefix="/events", tags=["Public Events"])
 
+
+def parse_utc_dt(dt_str: str) -> datetime:
+    if not dt_str: return None
+    from datetime import timezone
+    # Handle 'Z' and ensure aware UTC
+    dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 def parse_optional_object_id(value: Optional[str]) -> Optional[PydanticObjectId]:
     if value is None or value.strip() == "":
@@ -39,8 +50,6 @@ async def create_event(
     _=Depends(require_manager),
 
 ):
-    from datetime import datetime
-    
     # Parse form_fields string to list of dicts
     fields_list = json.loads(form_fields)
     
@@ -49,10 +58,10 @@ async def create_event(
             title=title,
             description=description,
             point=point,
-            registration_start=datetime.fromisoformat(registration_start),
-            registration_end=datetime.fromisoformat(registration_end),
-            event_start=datetime.fromisoformat(event_start),
-            event_end=datetime.fromisoformat(event_end),
+            registration_start=parse_utc_dt(registration_start),
+            registration_end=parse_utc_dt(registration_end),
+            event_start=parse_utc_dt(event_start),
+            event_end=parse_utc_dt(event_end),
             location=location,
             max_participants=max_participants,
             form_fields=fields_list,
@@ -117,8 +126,6 @@ async def update_event(
     _=Depends(require_manager),
 
 ):
-    from datetime import datetime
-    
     update_data = {}
     if title is not None: update_data["title"] = title
     if description is not None: update_data["description"] = description
@@ -127,10 +134,10 @@ async def update_event(
     if max_participants is not None: update_data["max_participants"] = max_participants
 
     
-    if registration_start: update_data["registration_start"] = datetime.fromisoformat(registration_start)
-    if registration_end: update_data["registration_end"] = datetime.fromisoformat(registration_end)
-    if event_start: update_data["event_start"] = datetime.fromisoformat(event_start)
-    if event_end: update_data["event_end"] = datetime.fromisoformat(event_end)
+    if registration_start: update_data["registration_start"] = parse_utc_dt(registration_start)
+    if registration_end: update_data["registration_end"] = parse_utc_dt(registration_end)
+    if event_start: update_data["event_start"] = parse_utc_dt(event_start)
+    if event_end: update_data["event_end"] = parse_utc_dt(event_end)
     
     if form_fields:
         update_data["form_fields"] = json.loads(form_fields)

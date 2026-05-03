@@ -17,6 +17,13 @@ from services.event_promotion import EventPromotionService
 
 router = APIRouter(prefix="/event-promotions", tags=["Event Promotions"])
 
+def parse_utc_dt(dt_str: str) -> datetime:
+    if not dt_str: return None
+    from datetime import timezone
+    # Handle 'Z' and ensure aware UTC for event promotions
+    dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
 @router.post(
     "",
     response_model=EventPromotionRead,
@@ -45,8 +52,8 @@ async def create_promotion(
         time = None
         if event_start and event_end:
             time = EventTimeSchema(
-                start=datetime.fromisoformat(event_start),
-                end=datetime.fromisoformat(event_end)
+                start=parse_utc_dt(event_start),
+                end=parse_utc_dt(event_end)
             )
             
         data = EventPromotionCreate(
@@ -142,8 +149,8 @@ async def update_promotion(
         
         if event_start and event_end:
             update_dict["time"] = EventTimeSchema(
-                start=datetime.fromisoformat(event_start),
-                end=datetime.fromisoformat(event_end)
+                start=parse_utc_dt(event_start),
+                end=parse_utc_dt(event_end)
             )
             
         data = EventPromotionUpdate(**update_dict)

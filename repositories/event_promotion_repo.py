@@ -59,7 +59,7 @@ class EventPromotionRepository:
     ):
         # DA_DUYET and now < time.end + 3 days
         # In MongoDB: time.end >= now - 3 days
-        threshold = now - timedelta(days=3)
+        threshold = now - timedelta(weeks=3)
         query = {
             "status": "DA_DUYET",
             "time.end": {"$gte": threshold}
