@@ -1,11 +1,22 @@
-from datetime import datetime
+from pydantic import BaseModel, Field, field_validator
+from datetime import datetime, timezone
 from typing import Optional, List
-from pydantic import BaseModel, Field
 from beanie import PydanticObjectId
 
 class EventTimeSchema(BaseModel):
     start: datetime
     end: datetime
+
+    @field_validator("start", "end", mode="before")
+    @classmethod
+    def ensure_utc(cls, v):
+        if isinstance(v, str):
+            # Handle 'Z' and ensure aware UTC
+            dt = datetime.fromisoformat(v.replace('Z', '+00:00'))
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
 
 class OrganizationInfoSchema(BaseModel):
     id: str
@@ -42,6 +53,16 @@ class EventPromotionRead(EventPromotionBase):
     semester_id: Optional[PydanticObjectId] = None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("created_at", "updated_at", mode="before")
+    @classmethod
+    def ensure_read_utc(cls, v):
+        if isinstance(v, str):
+            dt = datetime.fromisoformat(v.replace('Z', '+00:00'))
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
 
 class EventPromotionPaginationResponse(BaseModel):
     items: List[EventPromotionRead]

@@ -96,3 +96,16 @@ class ParticipatedEvent(BaseModel):
 class UserEventStatsResponse(BaseModel):
     total_points: float
     participated_events: List[ParticipatedEvent]
+
+
+class UserSemesterPoint(BaseModel):
+    semester_id: PydanticObjectId
+    semester_name: str
+    academic_year: str
+    total_points: float
+    is_active: bool = False
+
+
+class UserPointsSummaryResponse(BaseModel):
+    items: List[UserSemesterPoint]
+    overall_total: float

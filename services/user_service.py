@@ -28,6 +28,7 @@ from schemas.users import (
     UserUpdate,
     UserEventStatsResponse,
     ParticipatedEvent,
+    UserPointsSummaryResponse,
 )
 from services.cloudinary_service import upload_image
 
@@ -277,6 +278,66 @@ class UserService:
         return UserEventStatsResponse(
             total_points=total_points,
             participated_events=participated_events
+        )
+
+    async def get_user_points_summary(
+        self,
+        user_id: PydanticObjectId,
+    ) -> UserPointsSummaryResponse:
+        from schemas.users import UserSemesterPoint, UserPointsSummaryResponse
+        
+        # 1. Get all registrations for the user
+        registrations = await self.event_reg_repo.get_by_user(user_id)
+        if not registrations:
+            return UserPointsSummaryResponse(items=[], overall_total=0.0)
+
+        # 2. Filter checked-in registrations
+        checked_in_regs = [r for r in registrations if getattr(r, 'checked_in', False)]
+        if not checked_in_regs:
+            return UserPointsSummaryResponse(items=[], overall_total=0.0)
+
+        event_ids = [r.event_id for r in checked_in_regs]
+        
+        # 3. Fetch ONLY public events (as per user request)
+        public_events = await self.public_event_repo.get_by_ids(event_ids)
+        if not public_events:
+            return UserPointsSummaryResponse(items=[], overall_total=0.0)
+
+        # 4. Group by semester_id and sum points
+        semester_points: dict[PydanticObjectId, float] = {}
+        for event in public_events:
+            sem_id = getattr(event, 'semester_id', None)
+            if not sem_id:
+                continue
+            point = float(getattr(event, 'point', 0))
+            semester_points[sem_id] = semester_points.get(sem_id, 0.0) + point
+
+        # 5. Fetch semester details for the response
+        all_semesters = await self.semester_repo.list_all()
+        semester_map = {s.id: s for s in all_semesters}
+
+        items = []
+        overall_total = 0.0
+        for sem_id, total in semester_points.items():
+            sem = semester_map.get(sem_id)
+            if not sem:
+                continue
+            
+            items.append(UserSemesterPoint(
+                semester_id=sem_id,
+                semester_name=sem.name,
+                academic_year=sem.academic_year,
+                total_points=total,
+                is_active=sem.is_active
+            ))
+            overall_total += total
+
+        # Sort by semester end date descending
+        items.sort(key=lambda x: semester_map[x.semester_id].end_date, reverse=True)
+
+        return UserPointsSummaryResponse(
+            items=items,
+            overall_total=overall_total
         )
 
     async def get_user_detail(

@@ -16,6 +16,7 @@ from schemas.users import (
     UserResponse,
     UserUpdate,
     UserEventStatsResponse,
+    UserPointsSummaryResponse,
 )
 from security import require_admin_or_manager_global, require_user
 from services.user_service import UserService
@@ -131,6 +132,15 @@ async def get_user_detail(
     service: UserService = Depends(get_user_service),
 ) -> UserProfileResponse:
     return await service.get_user_detail(user_id, current_user)
+
+
+@router.get("/{user_id}/points-summary", response_model=UserPointsSummaryResponse)
+async def get_user_points_summary(
+    user_id: PydanticObjectId,
+    current_user: TokenData = Depends(require_admin_or_manager_global),
+    service: UserService = Depends(get_user_service),
+) -> UserPointsSummaryResponse:
+    return await service.get_user_points_summary(user_id)
 
 
 @router.put("/{user_id}", response_model=UserRead, status_code=status.HTTP_200_OK)
