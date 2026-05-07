@@ -138,7 +138,7 @@ class AttendanceWorkerService:
                 checkin_latitude=message.latitude,
                 checkin_longitude=message.longitude,
                 distance_meters=message.distance_meters,
-                source="qr",
+                source=message.source,
             )
             await AttendanceRepository.create(attendance)
             if event_type == "public":
@@ -165,6 +165,7 @@ class AttendanceWorkerService:
                         "sequence": message.sequence,
                         "distance_meters": message.distance_meters,
                         "source_ip": message.source_ip,
+                        "source": message.source,
                     },
                 )
             )

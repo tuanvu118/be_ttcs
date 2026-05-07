@@ -52,6 +52,7 @@ class QRWindowResponse(BaseModel):
     valid_from: datetime
     valid_until: datetime
     qr_value: str
+    manual_code: str
 
     @field_validator("valid_from", "valid_until", mode="before")
     @classmethod
@@ -98,6 +99,12 @@ class QRSessionRead(BaseModel):
 
 class QRScanRequest(BaseModel):
     qr_value: str = Field(min_length=10)
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
+
+
+class AttendanceCodeRequest(BaseModel):
+    code: str = Field(min_length=4, max_length=12, pattern=r"^\d+$")
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
 
@@ -158,6 +165,7 @@ class CheckInMessage(BaseModel):
     payload_key: str
     session_key: str
     source_ip: Optional[str] = None
+    source: str = "qr"
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("valid_from", "valid_until", "scanned_at", mode="before")

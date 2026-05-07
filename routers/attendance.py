@@ -3,7 +3,9 @@ from typing import List
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, Path, Request, status
 
+from utils.rate_limiter import limiter
 from schemas.attendance import (
+    AttendanceCodeRequest,
     AttendanceRead,
     QRScanQueuedResponse,
     QRScanRequest,
@@ -57,6 +59,24 @@ async def scan_qr_code(
     current_user: TokenData = Depends(require_user),
 ):
     return await QRAttendanceService.submit_scan(
+        current_user_id=PydanticObjectId(current_user.sub),
+        request=request_body,
+        source_ip=request.client.host if request.client else None,
+    )
+
+
+@router.post(
+    "/code",
+    response_model=QRScanQueuedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+@limiter.limit("30/minute")
+async def submit_attendance_code(
+    request: Request,
+    request_body: AttendanceCodeRequest,
+    current_user: TokenData = Depends(require_user),
+):
+    return await QRAttendanceService.submit_manual_code(
         current_user_id=PydanticObjectId(current_user.sub),
         request=request_body,
         source_ip=request.client.host if request.client else None,

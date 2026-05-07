@@ -67,6 +67,7 @@ class ErrorCode(int, Enum):
     QR_SESSION_TOO_LARGE = 137
     INVALID_QR_SESSION_TIME = 138
     USER_NOT_ALLOWED_FOR_EVENT = 139
+    ATTENDANCE_CODE_INVALID = 141
 
 ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_FOUND: {
@@ -274,6 +275,10 @@ ERROR_DEFINITIONS: Dict[ErrorCode, Dict[str, object]] = {
     ErrorCode.USER_NOT_ALLOWED_FOR_EVENT: {
         "status": status.HTTP_403_FORBIDDEN,
         "message": "Ban khong nam trong danh sach duoc phep check-in su kien nay",
+    },
+    ErrorCode.ATTENDANCE_CODE_INVALID: {
+        "status": status.HTTP_400_BAD_REQUEST,
+        "message": "Ma diem danh khong hop le hoac da het han",
     },
 }
 
