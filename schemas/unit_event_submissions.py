@@ -109,7 +109,8 @@ class UnitEventSubmissionHTSKListItemResponse(BaseModel):
 
 class StudentRegistrationInfo(BaseModel):
     is_registered: bool
-    member_id: PydanticObjectId | None = None
+    unit_id: PydanticObjectId | None = None
+    unit_name: str | None = None
     check_in: bool | None = None
 
 

@@ -545,6 +545,15 @@ class UnitEventSubmissionsService:
             )
         existing_member = existing_by_user or existing_by_student
         is_registered = existing_member is not None
+        registered_unit_id = None
+        registered_unit_name = None
+        if existing_member:
+            registered_submission = await self.repo.get_by_id(existing_member.unitEventSubmissionId)
+            if registered_submission:
+                registered_unit_id = registered_submission.unitId
+                registered_unit = await self.unit_repo.get_by_id(registered_submission.unitId)
+                if registered_unit:
+                    registered_unit_name = registered_unit.name
 
         is_registration_open = self._is_htsk_submission_open(unit_event)
         can_register = (
@@ -575,7 +584,8 @@ class UnitEventSubmissionsService:
             can_register=can_register,
             my_registration=StudentRegistrationInfo(
                 is_registered=is_registered,
-                member_id=existing_member.id if existing_member else None,
+                unit_id=registered_unit_id,
+                unit_name=registered_unit_name,
                 check_in=existing_member.checkIn if existing_member else None,
             ),
         )
